@@ -8,6 +8,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(5000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  MONGODB_URI: z.string().default("mongodb://localhost:27017/connectly"),
 });
 
 export type Env = z.infer<typeof envSchema>;

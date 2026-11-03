@@ -10,10 +10,13 @@ describe("Server Foundation & Health Checks", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
-      status: "ok",
       version: "0.1.0",
       environment: "test",
+      services: {
+        database: "disconnected",
+      },
     });
+    expect(["ok", "degraded"]).toContain(res.body.status);
     expect(res.body.timestamp).toBeDefined();
     expect(typeof res.body.uptime).toBe("number");
   });
@@ -23,9 +26,9 @@ describe("Server Foundation & Health Checks", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
-      status: "ok",
       version: "0.1.0",
     });
+    expect(["ok", "degraded"]).toContain(res.body.status);
   });
 
   it("should return standardized 404 for non-existent routes", async () => {
