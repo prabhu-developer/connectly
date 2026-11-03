@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
 import { requestLogger } from "./middleware/request-logger.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
@@ -22,6 +23,7 @@ export function createApp(): Express {
   // Parsing Middleware
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser(env.COOKIE_SECRET));
 
   // Logging Middleware
   if (env.NODE_ENV !== "test") {

@@ -9,6 +9,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   MONGODB_URI: z.string().default("mongodb://localhost:27017/connectly"),
+  JWT_ACCESS_SECRET: z.string().min(16).default("dev_access_secret_change_in_production_min_32_chars"),
+  JWT_REFRESH_SECRET: z.string().min(16).default("dev_refresh_secret_change_in_production_min_32_chars"),
+  COOKIE_SECRET: z.string().min(16).default("dev_cookie_secret_change_in_production_min_32_chars"),
 });
 
 export type Env = z.infer<typeof envSchema>;
