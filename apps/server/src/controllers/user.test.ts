@@ -172,4 +172,47 @@ describe("User Profile & Status APIs", () => {
       expect(res.body.error.code).toBe("USER_NOT_FOUND");
     });
   });
+
+  describe("User Settings APIs (GET & PATCH /api/users/settings)", () => {
+    it("should retrieve default settings for authenticated user", async () => {
+      const res = await request(app)
+        .get("/api/users/settings")
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual({
+        soundEnabled: true,
+        enterToSend: true,
+        desktopNotifications: false,
+        theme: "system",
+      });
+    });
+
+    it("should update user settings and persist to database", async () => {
+      const res = await request(app)
+        .patch("/api/users/settings")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          soundEnabled: false,
+          enterToSend: false,
+          desktopNotifications: true,
+          theme: "dark",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual({
+        soundEnabled: false,
+        enterToSend: false,
+        desktopNotifications: true,
+        theme: "dark",
+      });
+
+      // Verify persisted
+      const user = await User.findById(userA._id);
+      expect(user?.settings?.soundEnabled).toBe(false);
+      expect(user?.settings?.theme).toBe("dark");
+    });
+  });
 });

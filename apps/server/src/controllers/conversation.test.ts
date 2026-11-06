@@ -360,4 +360,56 @@ describe("Conversation & Message REST APIs", () => {
       expect(res.body.data).toHaveLength(0);
     });
   });
+
+  describe("GET /api/conversations/:id/messages/search (Message Search)", () => {
+    it("should search messages inside a conversation matching text query", async () => {
+      // 1. Create conversation between Alice and Bob
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+      const convId = convRes.body.data.id;
+
+      // 2. Send messages
+      await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "Let us schedule a project sync tomorrow" });
+
+      await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenB}`)
+        .send({ content: "Sure, let us discuss the architecture" });
+
+      await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "Project architecture is ready" });
+
+      // 3. Search for "architecture"
+      const searchRes = await request(app)
+        .get(`/api/conversations/${convId}/messages/search?q=architecture`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(searchRes.status).toBe(200);
+      expect(searchRes.body.success).toBe(true);
+      expect(searchRes.body.data).toHaveLength(2);
+      expect(searchRes.body.data[0].matchSnippet).toBeDefined();
+
+      // 4. Search for query that doesn't match
+      const emptyRes = await request(app)
+        .get(`/api/conversations/${convId}/messages/search?q=nonexistent`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(emptyRes.status).toBe(200);
+      expect(emptyRes.body.data).toHaveLength(0);
+
+      // 5. Reject unauthorized non-participant
+      const unauthRes = await request(app)
+        .get(`/api/conversations/${convId}/messages/search?q=architecture`)
+        .set("Authorization", `Bearer ${tokenC}`);
+
+      expect(unauthRes.status).toBe(403);
+    });
+  });
 });

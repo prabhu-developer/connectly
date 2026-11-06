@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, LogOut, X, UserPlus } from "lucide-react";
+import { Search, LogOut, X, UserPlus, Settings } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { useAuthSession } from "../../auth/hooks/useAuthSession";
 import { ConversationList } from "./ConversationList";
 import { NewChatModal } from "./NewChatModal";
 import { ProfileModal } from "./ProfileModal";
+import { SettingsModal } from "./SettingsModal";
 import type { ConversationSummary } from "../types/chat";
 
 interface ConversationSidebarProps {
@@ -26,6 +27,7 @@ export function ConversationSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const userInitial = (user?.displayName || user?.username || "U").charAt(0).toUpperCase();
 
@@ -76,6 +78,16 @@ export function ConversationSidebar({
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <UserPlus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Settings & preferences"
+            aria-label="Open settings"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="sidebar-settings-button"
+          >
+            <Settings className="h-4 w-4" />
           </button>
           <ThemeToggle />
           <button
@@ -136,6 +148,12 @@ export function ConversationSidebar({
         onClose={() => setIsProfileOpen(false)}
         currentUser={user}
         onProfileUpdated={updateUser}
+      />
+
+      {/* Settings & Preferences Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </aside>
   );

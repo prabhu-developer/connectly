@@ -50,6 +50,17 @@ export const userSearchQuerySchema = z.object({
 });
 export type UserSearchQueryInput = z.infer<typeof userSearchQuerySchema>;
 
+export const searchMessagesQuerySchema = z.object({
+  q: z.string().trim().min(1, "Search query is required").max(100, "Search query is too long"),
+  limit: z.coerce.number().min(1).max(50).default(20),
+});
+export type SearchMessagesQueryInput = z.infer<typeof searchMessagesQuerySchema>;
+
+export interface MessageSearchResultDto {
+  message: MessageDto;
+  matchSnippet: string;
+}
+
 export interface ConversationParticipantDto {
   id: string;
   username: string;

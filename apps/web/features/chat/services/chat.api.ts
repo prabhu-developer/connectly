@@ -4,6 +4,7 @@ import type {
   AttachmentDto,
   ConversationDto,
   MessageDto,
+  MessageSearchResultDto,
   PaginatedMessagesDto,
   UserSearchResultDto,
 } from "@repo/contracts/chat";
@@ -87,6 +88,21 @@ export const chatApi = {
     const res = await apiClient.get<ApiResponse<UserSearchResultDto[]>>("/users/search", {
       params: { q: query },
     });
+    if (!res.data.success) {
+      throw new Error(res.data.error.message);
+    }
+    return res.data.data;
+  },
+
+  async searchMessages(
+    conversationId: string,
+    query: string,
+    limit = 20
+  ): Promise<MessageSearchResultDto[]> {
+    const res = await apiClient.get<ApiResponse<MessageSearchResultDto[]>>(
+      `/conversations/${conversationId}/messages/search`,
+      { params: { q: query, limit } }
+    );
     if (!res.data.success) {
       throw new Error(res.data.error.message);
     }

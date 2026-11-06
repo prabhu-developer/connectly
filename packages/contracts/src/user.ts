@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+export const updateSettingsSchema = z.object({
+  soundEnabled: z.boolean().optional(),
+  enterToSend: z.boolean().optional(),
+  desktopNotifications: z.boolean().optional(),
+  theme: z.enum(["light", "dark", "system"]).optional(),
+});
+export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+
+export interface UserSettingsDto {
+  soundEnabled: boolean;
+  enterToSend: boolean;
+  desktopNotifications: boolean;
+  theme: "light" | "dark" | "system";
+}
+
 export const updateProfileSchema = z.object({
   displayName: z
     .string()
@@ -28,6 +43,7 @@ export interface UserProfileDto {
   displayName: string;
   avatarUrl?: string;
   bio?: string;
+  settings?: UserSettingsDto;
   lastSeenAt?: string;
   createdAt: string;
   updatedAt: string;

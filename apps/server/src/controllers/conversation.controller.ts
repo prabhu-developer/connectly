@@ -4,6 +4,7 @@ import {
   sendMessageSchema,
   messageQuerySchema,
   updateReadCursorSchema,
+  searchMessagesQuerySchema,
 } from "@repo/contracts/chat";
 import { conversationService } from "../services/conversation.service.js";
 import { messageService } from "../services/message.service.js";
@@ -186,6 +187,41 @@ export async function updateReadCursor(
     res.status(200).json({
       success: true,
       data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function searchMessages(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const conversationId = getParamId(req.params.id, "Conversation ID");
+    const userId = req.user!.id;
+
+    const parseResult = searchMessagesQuerySchema.safeParse(req.query);
+    if (!parseResult.success) {
+      throw new AppError(
+        parseResult.error.errors[0]?.message || "Invalid search query",
+        400,
+        "VALIDATION_ERROR"
+      );
+    }
+
+    const { q, limit } = parseResult.data;
+    const results = await messageService.searchMessages({
+      currentUserId: userId,
+      conversationId,
+      query: q,
+      limit,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: results,
     });
   } catch (err) {
     next(err);

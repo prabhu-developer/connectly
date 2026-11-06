@@ -3,8 +3,10 @@ import { User, type UserDocument } from "../models/user.model.js";
 import { AppError } from "../middleware/error.middleware.js";
 import type {
   UpdateProfileInput,
+  UpdateSettingsInput,
   UserProfileDto,
   PublicUserProfileDto,
+  UserSettingsDto,
 } from "@repo/contracts/user";
 
 function mapToUserProfileDto(user: UserDocument): UserProfileDto {
@@ -15,6 +17,19 @@ function mapToUserProfileDto(user: UserDocument): UserProfileDto {
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
     bio: user.bio,
+    settings: user.settings
+      ? {
+          soundEnabled: user.settings.soundEnabled ?? true,
+          enterToSend: user.settings.enterToSend ?? true,
+          desktopNotifications: user.settings.desktopNotifications ?? false,
+          theme: user.settings.theme ?? "system",
+        }
+      : {
+          soundEnabled: true,
+          enterToSend: true,
+          desktopNotifications: false,
+          theme: "system",
+        },
     lastSeenAt: user.lastSeenAt ? user.lastSeenAt.toISOString() : undefined,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
@@ -92,6 +107,65 @@ export class UserService {
     }
 
     return mapToPublicProfileDto(user);
+  }
+
+  /**
+   * Retrieves a user's notification and chat settings.
+   */
+  async getSettings(userId: string): Promise<UserSettingsDto> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new AppError("Invalid user ID", 400, "INVALID_ID");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+
+    return {
+      soundEnabled: user.settings?.soundEnabled ?? true,
+      enterToSend: user.settings?.enterToSend ?? true,
+      desktopNotifications: user.settings?.desktopNotifications ?? false,
+      theme: user.settings?.theme ?? "system",
+    };
+  }
+
+  /**
+   * Updates a user's notification and chat settings.
+   */
+  async updateSettings(userId: string, input: UpdateSettingsInput): Promise<UserSettingsDto> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new AppError("Invalid user ID", 400, "INVALID_ID");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+
+    if (!user.settings) {
+      user.settings = {
+        soundEnabled: true,
+        enterToSend: true,
+        desktopNotifications: false,
+        theme: "system",
+      };
+    }
+
+    if (input.soundEnabled !== undefined) user.settings.soundEnabled = input.soundEnabled;
+    if (input.enterToSend !== undefined) user.settings.enterToSend = input.enterToSend;
+    if (input.desktopNotifications !== undefined) {
+      user.settings.desktopNotifications = input.desktopNotifications;
+    }
+    if (input.theme !== undefined) user.settings.theme = input.theme;
+
+    await user.save();
+    return {
+      soundEnabled: user.settings.soundEnabled,
+      enterToSend: user.settings.enterToSend,
+      desktopNotifications: user.settings.desktopNotifications,
+      theme: user.settings.theme,
+    };
   }
 }
 

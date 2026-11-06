@@ -4,6 +4,8 @@ import {
   searchUsers,
   getProfile,
   updateProfile,
+  getSettings,
+  updateSettings,
   getUserById,
 } from "../controllers/user.controller.js";
 
@@ -14,4 +16,6 @@ userRouter.use(requireAuth);
 userRouter.get("/search", searchUsers);
 userRouter.get("/profile", getProfile);
 userRouter.patch("/profile", updateProfile);
+userRouter.get("/settings", getSettings);
+userRouter.patch("/settings", updateSettings);
 userRouter.get("/:id", getUserById);

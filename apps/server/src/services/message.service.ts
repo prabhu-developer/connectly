@@ -3,7 +3,12 @@ import { Message, type MessageDocument } from "../models/message.model.js";
 import { Conversation } from "../models/conversation.model.js";
 import { conversationService } from "./conversation.service.js";
 import { AppError } from "../middleware/error.middleware.js";
-import type { AttachmentDto, MessageDto, PaginatedMessagesDto } from "@repo/contracts/chat";
+import type {
+  AttachmentDto,
+  MessageDto,
+  MessageSearchResultDto,
+  PaginatedMessagesDto,
+} from "@repo/contracts/chat";
 
 export interface CreateMessageParams {
   conversationId: string;
@@ -155,6 +160,39 @@ export class MessageService {
       nextCursor,
       hasMore,
     };
+  }
+
+  /**
+   * Searches messages within a conversation matching a text query.
+   */
+  async searchMessages(params: {
+    currentUserId: string;
+    conversationId: string;
+    query: string;
+    limit?: number;
+  }): Promise<MessageSearchResultDto[]> {
+    await conversationService.verifyParticipant(params.conversationId, params.currentUserId);
+
+    const trimmed = params.query?.trim() || "";
+    if (!trimmed) {
+      return [];
+    }
+
+    const safeLimit = Math.min(Math.max(params.limit || 20, 1), 50);
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const docs = await Message.find({
+      conversationId: new Types.ObjectId(params.conversationId),
+      content: regex,
+    })
+      .sort({ createdAt: -1 })
+      .limit(safeLimit);
+
+    return docs.map((doc) => ({
+      message: mapMessageToDto(doc),
+      matchSnippet: doc.content.length > 100 ? `${doc.content.slice(0, 100)}...` : doc.content,
+    }));
   }
 }
 

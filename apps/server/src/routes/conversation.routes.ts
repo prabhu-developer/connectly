@@ -7,6 +7,7 @@ import {
   getMessages,
   sendMessage,
   updateReadCursor,
+  searchMessages,
 } from "../controllers/conversation.controller.js";
 
 export const conversationRouter: IRouter = Router();
@@ -18,5 +19,6 @@ conversationRouter.get("/", getConversations);
 conversationRouter.post("/", createConversation);
 conversationRouter.get("/:id", getConversation);
 conversationRouter.get("/:id/messages", getMessages);
+conversationRouter.get("/:id/messages/search", searchMessages);
 conversationRouter.post("/:id/messages", sendMessage);
 conversationRouter.post("/:id/read", updateReadCursor);

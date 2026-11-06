@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { userSearchQuerySchema } from "@repo/contracts/chat";
-import { updateProfileSchema } from "@repo/contracts/user";
+import { updateProfileSchema, updateSettingsSchema } from "@repo/contracts/user";
 import { userSearchService } from "../services/user-search.service.js";
 import { userService } from "../services/user.service.js";
 import { AppError } from "../middleware/error.middleware.js";
@@ -96,6 +96,51 @@ export async function getUserById(
     res.status(200).json({
       success: true,
       data: publicProfile,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSettings(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const settings = await userService.getSettings(userId);
+
+    res.status(200).json({
+      success: true,
+      data: settings,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateSettings(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const parseResult = updateSettingsSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      throw new AppError(
+        parseResult.error.errors[0]?.message || "Invalid settings payload",
+        400,
+        "VALIDATION_ERROR"
+      );
+    }
+
+    const updated = await userService.updateSettings(userId, parseResult.data);
+
+    res.status(200).json({
+      success: true,
+      data: updated,
     });
   } catch (err) {
     next(err);

@@ -1,5 +1,12 @@
 import mongoose, { Schema, type Document, type Model } from "mongoose";
 
+export interface IUserSettings {
+  soundEnabled: boolean;
+  enterToSend: boolean;
+  desktopNotifications: boolean;
+  theme: "light" | "dark" | "system";
+}
+
 export interface IUser {
   email: string;
   username: string;
@@ -7,6 +14,7 @@ export interface IUser {
   displayName: string;
   avatarUrl?: string;
   bio?: string;
+  settings?: IUserSettings;
   lastSeenAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +64,12 @@ const userSchema = new Schema<UserDocument>(
       trim: true,
       maxlength: [160, "Bio cannot exceed 160 characters"],
       default: "",
+    },
+    settings: {
+      soundEnabled: { type: Boolean, default: true },
+      enterToSend: { type: Boolean, default: true },
+      desktopNotifications: { type: Boolean, default: false },
+      theme: { type: String, enum: ["light", "dark", "system"], default: "system" },
     },
     lastSeenAt: {
       type: Date,
