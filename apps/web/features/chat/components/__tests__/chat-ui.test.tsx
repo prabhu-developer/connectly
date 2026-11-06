@@ -4,9 +4,12 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MessageBubble } from "../MessageBubble";
 import { MessageComposer } from "../MessageComposer";
 import { ConversationList } from "../ConversationList";
+import { ActiveConversationView } from "../ActiveConversationView";
 import { EmptyState } from "../EmptyState";
 import { ThemeToggle } from "../../../../components/theme-toggle";
-import type { ChatMessage, ConversationSummary } from "../../types/chat";
+import { SocketContext } from "../../context/SocketContext";
+import { formatLastSeen } from "../../hooks/usePresence";
+import type { ChatMessage, ConversationSummary, ChatParticipant } from "../../types/chat";
 
 describe("MessageBubble", () => {
   const baseMessage: ChatMessage = {
@@ -166,6 +169,115 @@ describe("ConversationList", () => {
     expect(screen.queryByText("Bob Jones")).not.toBeInTheDocument();
     expect(screen.getByText("Charlie Davis")).toBeInTheDocument();
   });
+
+  it("uses real-time socket presence when available in context", () => {
+    const handleSelect = vi.fn();
+    const mockSocketContext = {
+      socket: null,
+      isConnected: true,
+      onlineUserIds: new Set(["p-2"]), // charlie is dynamically online via socket
+      typingUsers: {},
+      isUserOnline: (id: string) => id === "p-2",
+      sendTypingStart: vi.fn(),
+      sendTypingStop: vi.fn(),
+      joinConversation: vi.fn(),
+      leaveConversation: vi.fn(),
+    };
+
+    render(
+      <SocketContext.Provider value={mockSocketContext}>
+        <ConversationList
+          conversations={mockConversations}
+          selectedConversationId={null}
+          onSelectConversation={handleSelect}
+        />
+      </SocketContext.Provider>
+    );
+
+    // Charlie should have the Online badge now
+    const onlineBadges = screen.getAllByTitle("Online");
+    expect(onlineBadges).toHaveLength(2); // Bob (mock default) + Charlie (socket online)
+  });
+});
+
+describe("ActiveConversationView & Presence", () => {
+  const participant: ChatParticipant = {
+    id: "user-bob",
+    username: "bob",
+    displayName: "Bob Jones",
+    isOnline: true,
+  };
+
+  const messages: ChatMessage[] = [
+    {
+      id: "msg-1",
+      conversationId: "conv-1",
+      senderId: "user-bob",
+      content: "Hello Alice!",
+      status: "read",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  it("renders active conversation with header, message bubble, and composer", () => {
+    const handleSend = vi.fn();
+    render(
+      <ActiveConversationView
+        conversationId="conv-1"
+        participant={participant}
+        messages={messages}
+        currentUserId="user-alice"
+        onSendMessage={handleSend}
+      />
+    );
+
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expect(screen.getByText("Hello Alice!")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Type a message...")).toBeInTheDocument();
+  });
+
+  it("displays real-time typing indicator when a user is typing", () => {
+    const mockSocketContext = {
+      socket: null,
+      isConnected: true,
+      onlineUserIds: new Set(["user-bob"]),
+      typingUsers: { "conv-1": ["Bob"] },
+      isUserOnline: (id: string) => id === "user-bob",
+      sendTypingStart: vi.fn(),
+      sendTypingStop: vi.fn(),
+      joinConversation: vi.fn(),
+      leaveConversation: vi.fn(),
+    };
+
+    render(
+      <SocketContext.Provider value={mockSocketContext}>
+        <ActiveConversationView
+          conversationId="conv-1"
+          participant={participant}
+          messages={messages}
+          currentUserId="user-alice"
+          onSendMessage={vi.fn()}
+        />
+      </SocketContext.Provider>
+    );
+
+    expect(screen.getByText("Bob is typing...")).toBeInTheDocument();
+  });
+});
+
+describe("formatLastSeen utility", () => {
+  it("formats recent timestamps properly", () => {
+    expect(formatLastSeen()).toBe("Offline");
+
+    const justNow = new Date(Date.now() - 30 * 1000).toISOString();
+    expect(formatLastSeen(justNow)).toBe("Last seen just now");
+
+    const tenMins = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    expect(formatLastSeen(tenMins)).toBe("Last seen 10m ago");
+
+    const threeHours = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+    expect(formatLastSeen(threeHours)).toBe("Last seen 3h ago");
+  });
 });
 
 describe("EmptyState", () => {
@@ -188,4 +300,3 @@ describe("ThemeToggle", () => {
     expect(button).toBeInTheDocument();
   });
 });
-

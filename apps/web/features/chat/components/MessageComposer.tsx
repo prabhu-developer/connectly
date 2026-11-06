@@ -5,12 +5,14 @@ import { SendHorizontal, Paperclip } from "lucide-react";
 
 interface MessageComposerProps {
   onSendMessage: (content: string) => void;
+  onTyping?: () => void;
   disabled?: boolean;
   placeholder?: string;
 }
 
 export function MessageComposer({
   onSendMessage,
+  onTyping,
   disabled = false,
   placeholder = "Type a message...",
 }: MessageComposerProps) {
@@ -66,7 +68,10 @@ export function MessageComposer({
           ref={textareaRef}
           rows={1}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            onTyping?.();
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           placeholder={placeholder}

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
 import { Check, CheckCheck } from "lucide-react";
+import { SocketContext } from "../context/SocketContext";
 import type { ConversationSummary } from "../types/chat";
 
 interface ConversationListProps {
@@ -45,6 +46,8 @@ export function ConversationList({
   onSelectConversation,
   searchQuery = "",
 }: ConversationListProps) {
+  const socketCtx = useContext(SocketContext);
+
   const filtered = conversations.filter((c) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -79,6 +82,10 @@ export function ConversationList({
           ? formatConversationDate(conv.lastMessage.createdAt)
           : "";
 
+        const isOnline = socketCtx
+          ? socketCtx.isUserOnline(conv.participant.id) || conv.participant.isOnline
+          : conv.participant.isOnline;
+
         return (
           <li key={conv.id} role="option" aria-selected={isSelected}>
             <button
@@ -95,7 +102,7 @@ export function ConversationList({
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-base select-none">
                   {initial}
                 </div>
-                {conv.participant.isOnline && (
+                {isOnline && (
                   <span
                     title="Online"
                     className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background bg-emerald-500"

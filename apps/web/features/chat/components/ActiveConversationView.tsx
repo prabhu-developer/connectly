@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useContext } from "react";
 import { ArrowLeft } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
+import { SocketContext } from "../context/SocketContext";
+import { usePresence } from "../hooks/usePresence";
+import { useTypingIndicator } from "../hooks/useTypingIndicator";
 import type { ChatMessage, ChatParticipant } from "../types/chat";
 
 interface ActiveConversationViewProps {
+  conversationId?: string;
   participant: ChatParticipant;
   messages: ChatMessage[];
   currentUserId: string;
@@ -14,26 +18,8 @@ interface ActiveConversationViewProps {
   onBack?: () => void;
 }
 
-function formatLastSeen(isoString?: string): string {
-  if (!isoString) return "Offline";
-  try {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
-    if (diffMinutes < 1) return "Last seen just now";
-    if (diffMinutes < 60) return `Last seen ${diffMinutes}m ago`;
-
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `Last seen ${diffHours}h ago`;
-
-    return `Last seen ${date.toLocaleDateString([], { month: "short", day: "numeric" })}`;
-  } catch {
-    return "Offline";
-  }
-}
-
 export function ActiveConversationView({
+  conversationId,
   participant,
   messages,
   currentUserId,
@@ -41,6 +27,22 @@ export function ActiveConversationView({
   onBack,
 }: ActiveConversationViewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketCtx = useContext(SocketContext);
+
+  const { isOnline, statusText } = usePresence(participant);
+  const { typingIndicatorText, onUserKeypress, stopTypingImmediate } =
+    useTypingIndicator(conversationId);
+
+  // Manage room subscription
+  useEffect(() => {
+    if (!conversationId || !socketCtx) return;
+
+    socketCtx.joinConversation(conversationId);
+
+    return () => {
+      socketCtx.leaveConversation(conversationId);
+    };
+  }, [conversationId, socketCtx]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,6 +51,11 @@ export function ActiveConversationView({
   const participantInitial = (participant.displayName || participant.username)
     .charAt(0)
     .toUpperCase();
+
+  const handleSend = (content: string) => {
+    stopTypingImmediate();
+    onSendMessage(content);
+  };
 
   return (
     <div
@@ -73,7 +80,7 @@ export function ActiveConversationView({
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm select-none">
               {participantInitial}
             </div>
-            {participant.isOnline && (
+            {isOnline && (
               <span
                 title="Online"
                 className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500"
@@ -87,10 +94,14 @@ export function ActiveConversationView({
               {participant.displayName || participant.username}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {participant.isOnline ? (
+              {typingIndicatorText ? (
+                <span className="text-primary font-medium italic animate-pulse">
+                  {typingIndicatorText}
+                </span>
+              ) : isOnline ? (
                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
               ) : (
-                formatLastSeen(participant.lastSeenAt)
+                statusText
               )}
             </p>
           </div>
@@ -121,8 +132,9 @@ export function ActiveConversationView({
       </div>
 
       {/* Message Composer */}
-      <MessageComposer onSendMessage={onSendMessage} />
+      <MessageComposer onSendMessage={handleSend} onTyping={onUserKeypress} />
     </div>
   );
 }
+
 

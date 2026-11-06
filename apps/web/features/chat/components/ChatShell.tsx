@@ -97,6 +97,7 @@ export function ChatShell() {
       >
         {selectedConversation ? (
           <ActiveConversationView
+            conversationId={selectedConversationId || undefined}
             participant={selectedConversation.participant}
             messages={activeMessages}
             currentUserId={currentUserId}
