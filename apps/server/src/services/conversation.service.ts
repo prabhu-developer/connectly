@@ -1,8 +1,12 @@
+import path from "node:path";
 import { Types } from "mongoose";
 import { Conversation, type ConversationDocument, createParticipantKey } from "../models/conversation.model.js";
 import { Message, type MessageDocument } from "../models/message.model.js";
 import { User, type UserDocument } from "../models/user.model.js";
+import { Media } from "../models/media.model.js";
 import { AppError } from "../middleware/error.middleware.js";
+import { getSocketServer } from "../socket/index.js";
+import { SOCKET_EVENTS } from "@repo/contracts/socket";
 import type { ConversationDto, ConversationParticipantDto, LastMessageDto } from "@repo/contracts/chat";
 
 export interface PopulatedConversationDoc {
@@ -141,6 +145,46 @@ export class ConversationService {
     }
 
     return conv;
+  }
+
+  /**
+   * Deletes a conversation and all its messages (including attachment media cleanup).
+   */
+  async deleteConversation(conversationId: string, userId: string): Promise<void> {
+    const conv = await this.verifyParticipant(conversationId, userId);
+
+    // Find all messages in the conversation to clean up any media attachments
+    const messages = await Message.find({ conversationId: conv._id });
+    const filenames: string[] = [];
+    for (const msg of messages) {
+      if (msg.attachment?.url) {
+        const filename = path.basename(msg.attachment.url.split("?")[0] || "");
+        if (filename) filenames.push(filename);
+      }
+    }
+
+    if (filenames.length > 0) {
+      await Media.deleteMany({ filename: { $in: filenames } });
+    }
+
+    // Delete all messages belonging to this conversation
+    await Message.deleteMany({ conversationId: conv._id });
+
+    // Delete the conversation document
+    await Conversation.findByIdAndDelete(conv._id);
+
+    // Broadcast conversation deletion in real-time
+    const io = getSocketServer();
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit(SOCKET_EVENTS.CONVERSATION_DELETE, {
+        conversationId,
+      });
+      for (const p of conv.participants) {
+        io.to(`user:${p.toString()}`).emit(SOCKET_EVENTS.CONVERSATION_DELETE, {
+          conversationId,
+        });
+      }
+    }
   }
 
   /**

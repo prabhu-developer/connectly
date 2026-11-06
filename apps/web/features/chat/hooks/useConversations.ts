@@ -112,14 +112,21 @@ export function useConversations(activeConversationId?: string | null) {
       );
     }
 
+    function handleConversationDelete(payload: { conversationId: string }) {
+      if (!payload?.conversationId) return;
+      setConversations((prev) => prev.filter((c) => c.id !== payload.conversationId));
+    }
+
     socket.on(SOCKET_EVENTS.MESSAGE_NEW, handleMessageNew);
     socket.on(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, handleReadUpdate);
     socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleStatusUpdate);
+    socket.on(SOCKET_EVENTS.CONVERSATION_DELETE, handleConversationDelete);
 
     return () => {
       socket.off(SOCKET_EVENTS.MESSAGE_NEW, handleMessageNew);
       socket.off(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, handleReadUpdate);
       socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleStatusUpdate);
+      socket.off(SOCKET_EVENTS.CONVERSATION_DELETE, handleConversationDelete);
     };
   }, [socketCtx?.socket, activeConversationId, fetchConversations]);
 
@@ -136,11 +143,29 @@ export function useConversations(activeConversationId?: string | null) {
     []
   );
 
+  const deleteConversation = useCallback(
+    async (conversationId: string): Promise<void> => {
+      // Optimistic removal
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      try {
+        await chatApi.deleteConversation(conversationId);
+        if (socketCtx?.socket?.connected) {
+          socketCtx.socket.emit(SOCKET_EVENTS.CONVERSATION_DELETE, { conversationId });
+        }
+      } catch (err) {
+        void fetchConversations();
+        throw err;
+      }
+    },
+    [fetchConversations, socketCtx?.socket]
+  );
+
   return {
     conversations,
     isLoading,
     error,
     refetch: fetchConversations,
     startConversationWithUser,
+    deleteConversation,
   };
 }

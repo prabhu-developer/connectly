@@ -1,8 +1,12 @@
+import path from "node:path";
 import { Types } from "mongoose";
 import { Message, type MessageDocument } from "../models/message.model.js";
 import { Conversation } from "../models/conversation.model.js";
+import { Media } from "../models/media.model.js";
 import { conversationService } from "./conversation.service.js";
 import { AppError } from "../middleware/error.middleware.js";
+import { getSocketServer } from "../socket/index.js";
+import { SOCKET_EVENTS } from "@repo/contracts/socket";
 import type {
   AttachmentDto,
   MessageDto,
@@ -23,6 +27,12 @@ export interface GetMessagesParams {
   currentUserId: string;
   cursor?: string;
   limit?: number;
+}
+
+export interface DeleteMessageParams {
+  conversationId: string;
+  messageId: string;
+  userId: string;
 }
 
 function mapMessageToDto(doc: MessageDocument): MessageDto {
@@ -193,6 +203,59 @@ export class MessageService {
       message: mapMessageToDto(doc),
       matchSnippet: doc.content.length > 100 ? `${doc.content.slice(0, 100)}...` : doc.content,
     }));
+  }
+
+  /**
+   * Deletes a message (including file/image attachment cleanup) and updates conversation last message.
+   */
+  async deleteMessage(params: DeleteMessageParams): Promise<void> {
+    if (!Types.ObjectId.isValid(params.conversationId) || !Types.ObjectId.isValid(params.messageId)) {
+      throw new AppError("Invalid ID format", 400, "INVALID_ID");
+    }
+
+    // Verify user is an authorized participant in the conversation
+    await conversationService.verifyParticipant(params.conversationId, params.userId);
+
+    const message = await Message.findById(params.messageId);
+    if (!message || message.conversationId.toString() !== params.conversationId) {
+      throw new AppError("Message not found", 404, "MESSAGE_NOT_FOUND");
+    }
+
+    // Only sender is authorized to delete the message
+    if (message.senderId.toString() !== params.userId) {
+      throw new AppError("You can only delete your own messages", 403, "FORBIDDEN");
+    }
+
+    // If message contains an attachment, clean up its Media record
+    if (message.attachment?.url) {
+      const filename = path.basename(message.attachment.url.split("?")[0] || "");
+      if (filename) {
+        await Media.deleteOne({ filename });
+      }
+    }
+
+    await Message.findByIdAndDelete(params.messageId);
+
+    // If this was the lastMessageId on the conversation, update to the previous newest message
+    const conv = await Conversation.findById(params.conversationId);
+    if (conv && conv.lastMessageId?.toString() === params.messageId) {
+      const remainingNewest = await Message.findOne({
+        conversationId: new Types.ObjectId(params.conversationId),
+      }).sort({ createdAt: -1 });
+
+      conv.lastMessageId = (remainingNewest?._id as unknown as Types.ObjectId) || undefined;
+      conv.lastMessageAt = remainingNewest?.createdAt || conv.createdAt;
+      await conv.save();
+    }
+
+    // Broadcast deletion in real-time
+    const io = getSocketServer();
+    if (io) {
+      io.to(`conversation:${params.conversationId}`).emit(SOCKET_EVENTS.MESSAGE_DELETE, {
+        conversationId: params.conversationId,
+        messageId: params.messageId,
+      });
+    }
   }
 }
 

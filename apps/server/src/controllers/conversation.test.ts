@@ -6,6 +6,7 @@ import { createApp } from "../app.js";
 import { User, type UserDocument } from "../models/user.model.js";
 import { Conversation } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
+import { Media } from "../models/media.model.js";
 import { signAccessToken } from "../utils/token.utils.js";
 
 describe("Conversation & Message REST APIs", () => {
@@ -410,6 +411,170 @@ describe("Conversation & Message REST APIs", () => {
         .set("Authorization", `Bearer ${tokenC}`);
 
       expect(unauthRes.status).toBe(403);
+    });
+  });
+
+  describe("DELETE /api/conversations/:id/messages/:messageId", () => {
+    it("should allow sender to delete their message and update conversation lastMessage", async () => {
+      // 1. Create conversation
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+
+      const convId = convRes.body.data.id;
+
+      // 2. Send two messages
+      const msg1Res = await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "First message" });
+
+      const msg2Res = await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "Second message to be deleted" });
+
+      const msg2Id = msg2Res.body.data.id;
+
+      // 3. Delete second message
+      const delRes = await request(app)
+        .delete(`/api/conversations/${convId}/messages/${msg2Id}`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      // 4. Verify message is deleted from database
+      const found = await Message.findById(msg2Id);
+      expect(found).toBeNull();
+
+      // 5. Verify conversation lastMessage is updated to first message
+      const updatedConv = await Conversation.findById(convId);
+      expect(updatedConv?.lastMessageId?.toString()).toBe(msg1Res.body.data.id);
+    });
+
+    it("should delete file attachment message and clean up media metadata", async () => {
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+
+      const convId = convRes.body.data.id;
+      const filename = "test-doc-123.pdf";
+
+      await Media.create({
+        filename,
+        originalName: "test-doc.pdf",
+        storageKey: "connectly/documents/test-doc-123",
+        url: "https://res.cloudinary.com/demo/image/upload/test-doc-123.pdf",
+        resourceType: "raw",
+        mimeType: "application/pdf",
+        size: 2048,
+        uploaderId: userA._id,
+      });
+
+      const fileMsgRes = await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          content: "Here is the report",
+          attachment: {
+            url: `/api/media/${filename}`,
+            type: "file",
+            name: "test-doc.pdf",
+            size: 2048,
+            mimeType: "application/pdf",
+          },
+        });
+
+      const messageId = fileMsgRes.body.data.id;
+
+      // Delete the file message
+      const delRes = await request(app)
+        .delete(`/api/conversations/${convId}/messages/${messageId}`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(delRes.status).toBe(200);
+
+      // Verify Media record is deleted
+      const mediaRecord = await Media.findOne({ filename });
+      expect(mediaRecord).toBeNull();
+    });
+
+    it("should reject non-sender from deleting another participant message with 403", async () => {
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+
+      const convId = convRes.body.data.id;
+
+      const msgRes = await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "User A message" });
+
+      const msgId = msgRes.body.data.id;
+
+      // User B tries to delete User A's message
+      const delRes = await request(app)
+        .delete(`/api/conversations/${convId}/messages/${msgId}`)
+        .set("Authorization", `Bearer ${tokenB}`);
+
+      expect(delRes.status).toBe(403);
+      expect(delRes.body.error.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("DELETE /api/conversations/:id", () => {
+    it("should delete entire conversation and all its messages", async () => {
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+
+      const convId = convRes.body.data.id;
+
+      await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ content: "Message 1" });
+
+      await request(app)
+        .post(`/api/conversations/${convId}/messages`)
+        .set("Authorization", `Bearer ${tokenB}`)
+        .send({ content: "Message 2" });
+
+      const delRes = await request(app)
+        .delete(`/api/conversations/${convId}`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      // Verify conversation and messages are removed from database
+      const foundConv = await Conversation.findById(convId);
+      expect(foundConv).toBeNull();
+
+      const messagesCount = await Message.countDocuments({ conversationId: convId });
+      expect(messagesCount).toBe(0);
+    });
+
+    it("should reject non-participant from deleting conversation", async () => {
+      const convRes = await request(app)
+        .post("/api/conversations")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ recipientId: userB._id.toString() });
+
+      const convId = convRes.body.data.id;
+
+      const delRes = await request(app)
+        .delete(`/api/conversations/${convId}`)
+        .set("Authorization", `Bearer ${tokenC}`);
+
+      expect(delRes.status).toBe(403);
+      expect(delRes.body.error.code).toBe("FORBIDDEN");
     });
   });
 });

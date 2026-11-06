@@ -19,6 +19,7 @@ export function ChatShell() {
   const {
     conversations: liveConversations,
     startConversationWithUser,
+    deleteConversation,
   } = useConversations(selectedConversationId);
 
   // Auto-select first conversation once loaded if none is selected on desktop
@@ -31,10 +32,25 @@ export function ChatShell() {
     }
   }, [liveConversations, selectedConversationId]);
 
-  const { messages: liveMessages, sendMessage } = useChatMessages(
+  const {
+    messages: liveMessages,
+    sendMessage,
+    deleteMessage,
+  } = useChatMessages(
     selectedConversationId,
     currentUserId
   );
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      await deleteConversation(conversationId);
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null);
+      }
+    } catch {
+      // Continue safely
+    }
+  };
 
   const selectedConversation = liveConversations.find(
     (c) => c.id === selectedConversationId
@@ -108,6 +124,7 @@ export function ChatShell() {
           selectedConversationId={selectedConversationId}
           onSelectConversation={(id) => setSelectedConversationId(id)}
           onStartNewConversation={handleStartNewConversation}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
 
@@ -124,6 +141,8 @@ export function ChatShell() {
             messages={adaptedMessages}
             currentUserId={currentUserId}
             onSendMessage={sendMessage}
+            onDeleteMessage={deleteMessage}
+            onDeleteConversation={handleDeleteConversation}
             onBack={() => setSelectedConversationId(null)}
           />
         ) : (

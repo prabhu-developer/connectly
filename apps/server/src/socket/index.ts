@@ -4,6 +4,12 @@ import { env } from "../config/env.js";
 import { socketAuthMiddleware } from "./auth.socket.middleware.js";
 import { registerSocketHandlers } from "./handlers.js";
 
+let socketServerInstance: SocketIOServer | null = null;
+
+export function getSocketServer(): SocketIOServer | null {
+  return socketServerInstance;
+}
+
 export function createSocketServer(
   httpServer: HttpServer,
   options?: Partial<ServerOptions>
@@ -17,6 +23,8 @@ export function createSocketServer(
     pingInterval: 25000,
     ...options,
   });
+
+  socketServerInstance = io;
 
   // Attach authentication handshake middleware
   io.use(socketAuthMiddleware);

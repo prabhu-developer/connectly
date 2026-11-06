@@ -12,12 +12,14 @@ export const SOCKET_EVENTS = {
   MESSAGE_NEW: "message:new",
   MESSAGE_READ: "message:read",
   MESSAGE_STATUS_UPDATE: "message:status_update",
+  MESSAGE_DELETE: "message:delete",
 
   // Conversations
   CONVERSATION_JOIN: "conversation:join",
   CONVERSATION_LEAVE: "conversation:leave",
   CONVERSATION_READ: "conversation:read",
   CONVERSATION_READ_UPDATE: "conversation:read_update",
+  CONVERSATION_DELETE: "conversation:delete",
 
   // Presence & Typing
   PRESENCE_CHANGE: "presence:change",
@@ -80,6 +82,15 @@ export interface MessageStatusUpdatePayload {
   conversationId: string;
   messageId: string;
   status: "delivered" | "read";
+}
+
+export interface MessageDeletePayload {
+  conversationId: string;
+  messageId: string;
+}
+
+export interface ConversationDeletePayload {
+  conversationId: string;
 }
 
 

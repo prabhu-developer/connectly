@@ -10,9 +10,12 @@ import {
   type ConversationReadSocketPayload,
   type ConversationReadUpdatePayload,
   type MessageStatusUpdatePayload,
+  type MessageDeletePayload,
+  type ConversationDeletePayload,
 } from "@repo/contracts/socket";
 import { presenceService } from "../services/presence.service.js";
 import { messageService } from "../services/message.service.js";
+import { conversationService } from "../services/conversation.service.js";
 import { readCursorService } from "../services/read-cursor.service.js";
 import { Conversation } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
@@ -214,7 +217,94 @@ export function registerSocketHandlers(io: Server): void {
       }
     );
 
-    // 9. Disconnection & Multi-session Last Seen Persistence
+    // 9. Real-Time Message Deletion
+    socket.on(
+      SOCKET_EVENTS.MESSAGE_DELETE,
+      async (
+        data: { conversationId: string; messageId: string },
+        callback?: (ack: { success: boolean; error?: string }) => void
+      ) => {
+        try {
+          if (!data?.conversationId || !data?.messageId) {
+            if (typeof callback === "function") {
+              callback({ success: false, error: "conversationId and messageId are required" });
+            }
+            return;
+          }
+
+          await messageService.deleteMessage({
+            conversationId: data.conversationId,
+            messageId: data.messageId,
+            userId: user.id,
+          });
+
+          const deletePayload: MessageDeletePayload = {
+            conversationId: data.conversationId,
+            messageId: data.messageId,
+          };
+
+          const conv = await Conversation.findById(data.conversationId).lean();
+          const recipientId = conv?.participants
+            .find((p) => p.toString() !== user.id)
+            ?.toString();
+
+          const target = socket.to(`conversation:${data.conversationId}`);
+          if (recipientId) {
+            target.to(`user:${recipientId}`);
+          }
+          target.emit(SOCKET_EVENTS.MESSAGE_DELETE, deletePayload);
+
+          if (typeof callback === "function") callback({ success: true });
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : "Failed to delete message";
+          logger.warn({ socketId: socket.id, err }, "Socket message delete error");
+          if (typeof callback === "function") callback({ success: false, error: errorMessage });
+        }
+      }
+    );
+
+    // 10. Real-Time Conversation Deletion
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_DELETE,
+      async (
+        data: { conversationId: string },
+        callback?: (ack: { success: boolean; error?: string }) => void
+      ) => {
+        try {
+          if (!data?.conversationId) {
+            if (typeof callback === "function") {
+              callback({ success: false, error: "conversationId is required" });
+            }
+            return;
+          }
+
+          const conv = await Conversation.findById(data.conversationId).lean();
+          const recipientId = conv?.participants
+            .find((p) => p.toString() !== user.id)
+            ?.toString();
+
+          await conversationService.deleteConversation(data.conversationId, user.id);
+
+          const deletePayload: ConversationDeletePayload = {
+            conversationId: data.conversationId,
+          };
+
+          const target = socket.to(`conversation:${data.conversationId}`);
+          if (recipientId) {
+            target.to(`user:${recipientId}`);
+          }
+          target.emit(SOCKET_EVENTS.CONVERSATION_DELETE, deletePayload);
+
+          if (typeof callback === "function") callback({ success: true });
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : "Failed to delete conversation";
+          logger.warn({ socketId: socket.id, err }, "Socket conversation delete error");
+          if (typeof callback === "function") callback({ success: false, error: errorMessage });
+        }
+      }
+    );
+
+    // 11. Disconnection & Multi-session Last Seen Persistence
     socket.on(SOCKET_EVENTS.DISCONNECT, async (reason: string) => {
       logger.debug(
         { socketId: socket.id, userId: user.id, reason },

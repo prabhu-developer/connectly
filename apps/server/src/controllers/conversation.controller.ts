@@ -227,3 +227,48 @@ export async function searchMessages(
     next(err);
   }
 }
+
+export async function deleteConversation(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const conversationId = getParamId(req.params.id, "Conversation ID");
+    const userId = req.user!.id;
+
+    await conversationService.deleteConversation(conversationId, userId);
+
+    res.status(200).json({
+      success: true,
+      data: { message: "Conversation deleted successfully" },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const conversationId = getParamId(req.params.id, "Conversation ID");
+    const messageId = getParamId(req.params.messageId, "Message ID");
+    const userId = req.user!.id;
+
+    await messageService.deleteMessage({
+      conversationId,
+      messageId,
+      userId,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: { message: "Message deleted successfully" },
+    });
+  } catch (err) {
+    next(err);
+  }
+}

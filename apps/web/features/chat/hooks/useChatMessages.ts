@@ -138,14 +138,21 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
       }
     }
 
+    function handleMessageDelete(payload: { conversationId: string; messageId: string }) {
+      if (payload.conversationId !== convIdRef.current) return;
+      setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
+    }
+
     socket.on(SOCKET_EVENTS.MESSAGE_NEW, handleNewMessage);
     socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleStatusUpdate);
     socket.on(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, handleReadUpdate);
+    socket.on(SOCKET_EVENTS.MESSAGE_DELETE, handleMessageDelete);
 
     return () => {
       socket.off(SOCKET_EVENTS.MESSAGE_NEW, handleNewMessage);
       socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleStatusUpdate);
       socket.off(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, handleReadUpdate);
+      socket.off(SOCKET_EVENTS.MESSAGE_DELETE, handleMessageDelete);
     };
   }, [socketCtx?.socket, conversationId, currentUserId]);
 
@@ -223,11 +230,41 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
     [conversationId, currentUserId, socketCtx?.socket]
   );
 
+  const deleteMessage = useCallback(
+    async (messageId: string): Promise<void> => {
+      if (!conversationId) return;
+
+      // Optimistic removal
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+      try {
+        await chatApi.deleteMessage(conversationId, messageId);
+        if (socketCtx?.socket?.connected) {
+          socketCtx.socket.emit(SOCKET_EVENTS.MESSAGE_DELETE, {
+            conversationId,
+            messageId,
+          });
+        }
+      } catch (err) {
+        // Reload messages if deletion failed on server
+        try {
+          const data = await chatApi.getMessages(conversationId);
+          setMessages(data.messages);
+        } catch {
+          // Non-fatal
+        }
+        throw err;
+      }
+    },
+    [conversationId, socketCtx?.socket]
+  );
+
   return {
     messages,
     isLoading,
     hasMore,
     loadMore,
     sendMessage,
+    deleteMessage,
   };
 }

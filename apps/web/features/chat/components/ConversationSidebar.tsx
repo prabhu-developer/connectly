@@ -15,6 +15,7 @@ interface ConversationSidebarProps {
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onStartNewConversation?: (recipientId: string) => void;
+  onDeleteConversation?: (conversationId: string) => void;
 }
 
 export function ConversationSidebar({
@@ -22,6 +23,7 @@ export function ConversationSidebar({
   selectedConversationId,
   onSelectConversation,
   onStartNewConversation,
+  onDeleteConversation,
 }: ConversationSidebarProps) {
   const { user, logout, updateUser } = useAuthSession();
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,6 +134,7 @@ export function ConversationSidebar({
         conversations={conversations}
         selectedConversationId={selectedConversationId}
         onSelectConversation={onSelectConversation}
+        onDeleteConversation={onDeleteConversation}
         searchQuery={searchQuery}
       />
 

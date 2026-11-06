@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { ArrowLeft, Search, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Search, X, Loader2, Trash2 } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
 import { ParticipantProfileModal } from "./ParticipantProfileModal";
@@ -18,6 +18,8 @@ interface ActiveConversationViewProps {
   messages: ChatMessage[];
   currentUserId: string;
   onSendMessage: (content?: string, attachment?: AttachmentDto) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  onDeleteConversation?: (conversationId: string) => void;
   onBack?: () => void;
 }
 
@@ -27,10 +29,13 @@ export function ActiveConversationView({
   messages,
   currentUserId,
   onSendMessage,
+  onDeleteMessage,
+  onDeleteConversation,
   onBack,
 }: ActiveConversationViewProps) {
   const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showDeleteConvModal, setShowDeleteConvModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<MessageSearchResultDto[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -166,7 +171,7 @@ export function ActiveConversationView({
           </button>
         </div>
 
-        {/* Right Action Icons: Search in Conversation */}
+        {/* Right Action Icons: Search in Conversation & Delete Chat */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
@@ -188,6 +193,19 @@ export function ActiveConversationView({
           >
             <Search className="h-4 w-4" />
           </button>
+
+          {onDeleteConversation && conversationId && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConvModal(true)}
+              title="Delete entire chat"
+              aria-label="Delete entire chat"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="delete-conversation-button"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -292,6 +310,7 @@ export function ActiveConversationView({
               key={message.id}
               message={message}
               isCurrentUser={message.senderId === currentUserId}
+              onDelete={onDeleteMessage}
             />
           ))
         )}
@@ -309,6 +328,50 @@ export function ActiveConversationView({
         isOnline={isOnline}
         statusText={statusText}
       />
+
+      {/* Delete Conversation Confirmation Modal */}
+      {showDeleteConvModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          data-testid="delete-conversation-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Delete Chat?</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to delete this chat with{" "}
+              <span className="font-semibold text-foreground">
+                {participant.displayName || participant.username}
+              </span>
+              ? All messages, documents, and media attachments will be permanently deleted.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConvModal(false)}
+                className="px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
+                data-testid="cancel-delete-conversation"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConvModal(false);
+                  if (conversationId && onDeleteConversation) {
+                    onDeleteConversation(conversationId);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+                data-testid="confirm-delete-conversation"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

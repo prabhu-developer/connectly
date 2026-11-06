@@ -108,4 +108,22 @@ export const chatApi = {
     }
     return res.data.data;
   },
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const res = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `/conversations/${conversationId}`
+    );
+    if (!res.data.success) {
+      throw new Error(res.data.error.message);
+    }
+  },
+
+  async deleteMessage(conversationId: string, messageId: string): Promise<void> {
+    const res = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `/conversations/${conversationId}/messages/${messageId}`
+    );
+    if (!res.data.success) {
+      throw new Error(res.data.error.message);
+    }
+  },
 };

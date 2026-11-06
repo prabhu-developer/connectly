@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, CheckCheck, Clock, FileText, Download, X } from "lucide-react";
+import { Check, CheckCheck, Clock, FileText, Download, X, Trash2 } from "lucide-react";
 import type { ChatMessage } from "../types/chat";
 import { formatFileSize } from "../types/chat";
 import { getAccessToken } from "../../../lib/api-client";
@@ -9,6 +9,7 @@ import { getAccessToken } from "../../../lib/api-client";
 interface MessageBubbleProps {
   message: ChatMessage;
   isCurrentUser: boolean;
+  onDelete?: (messageId: string) => void;
 }
 
 function formatMessageTime(isoString: string): string {
@@ -20,8 +21,9 @@ function formatMessageTime(isoString: string): string {
   }
 }
 
-export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
+export function MessageBubble({ message, isCurrentUser, onDelete }: MessageBubbleProps) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const formattedTime = formatMessageTime(message.createdAt);
   const { attachment } = message;
   const token = getAccessToken();
@@ -37,9 +39,56 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
   return (
     <>
       <div
-        className={`flex w-full ${isCurrentUser ? "justify-end" : "justify-start"} my-1`}
+        className={`flex w-full group items-center gap-1.5 ${
+          isCurrentUser ? "justify-end flex-row" : "justify-start flex-row-reverse"
+        } my-1`}
         data-testid={`message-bubble-${message.id}`}
       >
+        {/* Delete Action button for sender's messages */}
+        {isCurrentUser && onDelete && (
+          <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center shrink-0">
+            {showConfirmDelete ? (
+              <div
+                className="flex items-center gap-1 bg-card border border-destructive/30 rounded-lg px-2 py-1 shadow-md text-xs select-none"
+                data-testid="confirm-delete-panel"
+              >
+                <span className="text-destructive font-medium text-[11px]">Delete?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDelete(message.id);
+                    setIsLightboxOpen(false);
+                    setShowConfirmDelete(false);
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium text-[11px] transition-colors"
+                  data-testid="confirm-delete-message"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmDelete(false)}
+                  className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:text-foreground font-medium text-[11px] transition-colors"
+                  data-testid="cancel-delete-message"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(true)}
+                title="Delete message"
+                aria-label="Delete message"
+                className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                data-testid="delete-message-button"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         <div
           className={`relative max-w-[85%] sm:max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm transition-colors ${
             isCurrentUser
@@ -153,6 +202,21 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
               >
                 <Download className="h-4 w-4" />
               </a>
+              {isCurrentUser && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDelete(message.id);
+                    setIsLightboxOpen(false);
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-500/80 text-white hover:bg-red-600 transition-colors"
+                  title="Delete image"
+                  aria-label="Delete image"
+                  data-testid="delete-image-button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsLightboxOpen(false)}

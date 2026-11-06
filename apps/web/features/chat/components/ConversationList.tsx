@@ -1,5 +1,5 @@
-import React, { useContext } from "react";
-import { Check, CheckCheck } from "lucide-react";
+import React, { useContext, useState } from "react";
+import { Check, CheckCheck, Trash2 } from "lucide-react";
 import { SocketContext } from "../context/SocketContext";
 import type { ConversationSummary } from "../types/chat";
 
@@ -7,6 +7,7 @@ interface ConversationListProps {
   conversations: ConversationSummary[];
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
+  onDeleteConversation?: (id: string) => void;
   searchQuery?: string;
 }
 
@@ -44,9 +45,11 @@ export function ConversationList({
   conversations,
   selectedConversationId,
   onSelectConversation,
+  onDeleteConversation,
   searchQuery = "",
 }: ConversationListProps) {
   const socketCtx = useContext(SocketContext);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const filtered = conversations.filter((c) => {
     if (!searchQuery.trim()) return true;
@@ -91,7 +94,7 @@ export function ConversationList({
             <button
               type="button"
               onClick={() => onSelectConversation(conv.id)}
-              className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`group/conv flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 isSelected
                   ? "bg-accent text-accent-foreground font-medium"
                   : "hover:bg-muted/70 text-foreground"
@@ -149,20 +152,88 @@ export function ConversationList({
                     </span>
                   </p>
 
-                  {conv.unreadCount > 0 && (
-                    <span
-                      aria-label={`${conv.unreadCount} unread messages`}
-                      className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground"
-                    >
-                      {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {conv.unreadCount > 0 && (
+                      <span
+                        aria-label={`${conv.unreadCount} unread messages`}
+                        className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground"
+                      >
+                        {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                      </span>
+                    )}
+
+                    {onDeleteConversation && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTargetId(conv.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                            setDeleteTargetId(conv.id);
+                          }
+                        }}
+                        title="Delete chat"
+                        aria-label={`Delete chat with ${conv.participant.displayName || conv.participant.username}`}
+                        className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/conv:opacity-100 focus:opacity-100"
+                        data-testid={`delete-conversation-${conv.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </button>
           </li>
         );
       })}
+
+      {/* Delete Conversation Confirmation Modal from List */}
+      {deleteTargetId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          data-testid="list-delete-conversation-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-foreground">Delete Chat?</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to delete this entire conversation? All messages, documents, and attachments will be permanently removed.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetId(null)}
+                className="px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
+                data-testid="cancel-list-delete-conversation"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteConversation && deleteTargetId) {
+                    onDeleteConversation(deleteTargetId);
+                  }
+                  setDeleteTargetId(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+                data-testid="confirm-list-delete-conversation"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ul>
   );
 }
