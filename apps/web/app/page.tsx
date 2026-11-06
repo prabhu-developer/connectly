@@ -1,14 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthSession } from "../features/auth/hooks/useAuthSession";
 import { ChatShell } from "../features/chat/components/ChatShell";
 import { SidebarSkeleton, ChatViewSkeleton } from "../features/chat/components/ChatSkeleton";
 
 export default function HomePage() {
-  const { isLoading } = useAuthSession();
+  const router = useRouter();
+  const { isLoading, isAuthenticated } = useAuthSession();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <div className="hidden md:block w-80 lg:w-96 shrink-0 h-full">

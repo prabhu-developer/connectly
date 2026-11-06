@@ -42,10 +42,12 @@ describe("Socket.IO Real-Time Infrastructure & Presence", () => {
   }, 30000);
 
   afterAll(async () => {
-    io.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    if (io) io.close();
+    if (httpServer) {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    }
     await mongoose.disconnect();
-    await mongod.stop();
+    if (mongod) await mongod.stop();
   });
 
   beforeEach(async () => {

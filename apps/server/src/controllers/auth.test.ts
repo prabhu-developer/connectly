@@ -20,7 +20,7 @@ describe("Authentication & Authorization API", () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    await mongod.stop();
+    if (mongod) await mongod.stop();
   });
 
   beforeEach(async () => {
@@ -57,7 +57,7 @@ describe("Authentication & Authorization API", () => {
       const refreshCookie = cookies?.find((c) => c.startsWith(`${REFRESH_COOKIE_NAME}=`));
       expect(refreshCookie).toBeDefined();
       expect(refreshCookie).toContain("HttpOnly");
-      expect(refreshCookie).toContain("Path=/api/auth");
+      expect(refreshCookie).toContain("Path=/");
     });
 
     it("should return 409 when email or username is already registered", async () => {

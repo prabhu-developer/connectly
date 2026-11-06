@@ -10,8 +10,14 @@ import { useAuthSession } from "../hooks/useAuthSession";
 
 export function LoginForm() {
   const router = useRouter();
-  const { login } = useAuthSession();
+  const { login, isAuthenticated } = useAuthSession();
   const [formError, setFormError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, router]);
 
   const {
     register,
@@ -29,7 +35,7 @@ export function LoginForm() {
     setFormError(null);
     try {
       await login(data);
-      router.push("/");
+      router.replace("/");
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "response" in err

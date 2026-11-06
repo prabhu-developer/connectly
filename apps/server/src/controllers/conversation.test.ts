@@ -27,7 +27,7 @@ describe("Conversation & Message REST APIs", () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    await mongod.stop();
+    if (mongod) await mongod.stop();
   });
 
   beforeEach(async () => {

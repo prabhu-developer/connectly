@@ -25,7 +25,7 @@ describe("Domain Models & Constraints", () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    await mongod.stop();
+    if (mongod) await mongod.stop();
   });
 
   beforeEach(async () => {

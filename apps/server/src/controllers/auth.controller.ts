@@ -11,7 +11,7 @@ const getCookieOptions = () => ({
   httpOnly: true,
   secure: env.NODE_ENV === "production",
   sameSite: "lax" as const,
-  path: "/api/auth",
+  path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
@@ -97,7 +97,7 @@ export async function handleRefresh(
     });
   } catch (err) {
     // If refresh fails, ensure stale cookie is cleared
-    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
     next(err);
   }
 }
@@ -112,7 +112,7 @@ export async function handleLogout(
 
     await authService.logout(rawRefreshToken);
 
-    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/api/auth" });
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
 
     res.status(200).json({
       success: true,

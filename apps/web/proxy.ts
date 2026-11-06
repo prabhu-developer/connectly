@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Next.js 16 Request Interception Proxy.
  * NOTE: As per architecture specifications, this is a perimeter route guard for client navigation.
- * Core authorization is independently enforced in backend route handlers and Server Actions.
+ * Core authorization is independently enforced in backend route handlers and client session hooks.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,11 +16,6 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // Redirect unauthenticated visitors attempting to view chat to login
-  if (!isAuthRoute && !hasRefreshCookie && pathname === "/") {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
   return NextResponse.next();
 }
 
@@ -29,4 +24,3 @@ export const matcher = [
 ];
 
 export default proxy;
-
