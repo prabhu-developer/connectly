@@ -2,6 +2,11 @@
   command = "pnpm run build"
   publish = "dist"
 
+[build.environment]
+  NODE_VERSION = "22"
+  SECRETS_SCAN_OMIT_KEYS = "NODE_ENV,PORT,CORS_ORIGIN"
+  SECRETS_SCAN_OMIT_PATHS = "README.md,apps/server/README.md,apps/web/README.md,docs/**"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

@@ -1,213 +1,214 @@
 # Connectly
 
-> Production-Quality Full-Stack Private Chat Application built with Turborepo, Next.js 16, Express, Socket.IO, and MongoDB.
+A full-stack private chat application built with Turborepo, Next.js 16, Express, Socket.IO, and MongoDB.
 
----
+## Live Demo
 
-## 🌐 Live Production & Demo Deployments
+| Component | URL |
+|---|---|
+| Application | https://connectlye.netlify.app |
+| API | https://connectlye.netlify.app/api |
+| Health Check | https://connectlye.netlify.app/health |
 
-| Component | Live Production URL | Description |
-| :--- | :--- | :--- |
-| **Web Frontend** | [https://connectlyi.netlify.app/](https://connectlyi.netlify.app/) | Next.js 16 Chat UI with theme switcher, real-time presence, media preview, search & settings |
-| **Backend API** | [https://connectlyi-api.netlify.app/](https://connectlyi-api.netlify.app/) | Express Serverless API deployed on Netlify Functions |
-| **Health Check** | [https://connectlyi-api.netlify.app/health](https://connectlyi-api.netlify.app/health) | Returns HTTP 200 `{ "success": true, "message": "Connectly API is running" }` |
+The frontend and backend are deployed through a single Netlify site using the same domain. Next.js handles frontend routes, while Express API requests are routed through Netlify Functions.
 
----
+## Demo Accounts
 
-## 👥 Demo Test Accounts
+| User | Email | Password |
+|---|---|---|
+| Alice Johnson | alice@connectly.dev | Password123! |
+| Bob Smith | bob@connectly.dev | Password123! |
+| Charlie Davis | charlie@connectly.dev | Password123! |
 
-Pre-seeded demo credentials for instant evaluation on [https://connectlyi.netlify.app/](https://connectlyi.netlify.app/) (also available via one-click quick-fill buttons on the login page):
+To test real-time messaging, sign in as Alice in one browser and Bob in another.
 
-| User | Email / Username | Password | Role / Bio |
-| :--- | :--- | :--- | :--- |
-| **Alice Johnson** | `alice@connectly.dev` (or `alice`) | `Password123!` | Product designer & coffee enthusiast |
-| **Bob Smith** | `bob@connectly.dev` (or `bob`) | `Password123!` | Full-stack engineer building real-time applications |
-| **Charlie Davis** | `charlie@connectly.dev` (or `charlie`) | `Password123!` | DevOps & open source advocate |
+## API Endpoints
 
-> [!TIP]
-> To test real-time 1-to-1 conversation, open **Alice** in a regular browser tab and **Bob** in an Incognito / private window. Both users already have an active conversation thread pre-seeded.
+All API requests use the following base URL:
 
----
+`https://connectlye.netlify.app/api`
 
-## 📡 API Reference & Endpoints
+### Authentication
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `GET /auth/me`
 
-All endpoints are hosted at `https://connectlyi-api.netlify.app/`:
+### Conversations
+- `GET /conversations`
+- `POST /conversations`
+- `GET /conversations/:id`
+- `GET /conversations/:id/messages`
+- `POST /conversations/:id/messages`
+- `GET /conversations/:id/messages/search`
+- `POST /conversations/:id/read`
 
-### System & Health Checks
-- `GET /health` — Root health check endpoint (`{ "success": true, "message": "Connectly API is running" }`)
-- `GET /api/health` — API-scoped health check endpoint
+### Users
+- `GET /users/search`
+- `GET /users/profile`
+- `PATCH /users/profile`
+- `GET /users/settings`
+- `PATCH /users/settings`
+- `GET /users/:id`
 
-### Authentication (`/api/auth`)
-- `POST /api/auth/register` — Register a new account (`email`, `username`, `password`, `displayName`)
-- `POST /api/auth/login` — Sign in with identifier (email/username) and password; issues HTTP-only refresh cookie and JSON access token
-- `POST /api/auth/refresh` — Rotate refresh session and issue a fresh access token
-- `POST /api/auth/logout` — Revoke active refresh session and clear cookies
-- `GET /api/auth/me` — Retrieve current authenticated user profile (`Authorization: Bearer <token>`)
+### Presence
+- `GET /presence`
+- `GET /presence/:userId`
 
-### Conversations & Messages (`/api/conversations`)
-- `GET /api/conversations` — List conversations for authenticated user with unread counts and last message
-- `POST /api/conversations` — Create or retrieve existing deterministic 1-to-1 conversation (`participantId`)
-- `GET /api/conversations/:id` — Get conversation details and participants
-- `GET /api/conversations/:id/messages` — Paginated message history (supports `cursor` and `limit`)
-- `POST /api/conversations/:id/messages` — Send message with idempotency enforcement (`clientTempId`, `content`, `attachment`)
-- `GET /api/conversations/:id/messages/search?q=...` — Search messages within conversation
-- `POST /api/conversations/:id/read` — Advance read cursor for authenticated user (`messageId`)
+### Media
+- `POST /media/upload`
+- `GET /media/:filename`
 
-### Users & Profiles (`/api/users`)
-- `GET /api/users/search?q=...` — Search directory users by username or display name
-- `GET /api/users/profile` — Get profile of authenticated user
-- `PATCH /api/users/profile` — Update display name and bio
-- `GET /api/users/settings` — Get user preferences (theme, notification sound, enter-to-send)
-- `PATCH /api/users/settings` — Update user preferences
-- `GET /api/users/:id` — Get public participant contact card
+### Health
+- `GET /health`
+- `GET /api/health`
 
-### Presence (`/api/presence`)
-- `GET /api/presence` — Query multi-session online status for multiple user IDs (`?userIds=id1,id2`)
-- `GET /api/presence/:userId` — Query real-time status and `lastSeenAt` for a specific user
-
-### Media & Attachments (`/api/media`)
-- `POST /api/media/upload` — Upload multipart file attachment (images up to 10MB, documents up to 25MB)
-- `GET /api/media/:filename` — Securely stream uploaded file attachment
-
----
-
-## 1. Monorepo Structure
+## Project Structure
 
 ```text
 connectly/
 ├── apps/
-│   ├── web/                     # Next.js 16 (App Router) frontend (port 3000)
-│   ├── server/                  # Express + Socket.IO backend & Serverless adapter (port 5000)
-│   └── docs/                    # Internal documentation app (port 3001)
+│   ├── web/             # Next.js frontend
+│   ├── server/          # Express API and Socket.IO
+│   └── docs/            # Documentation application
 ├── packages/
-│   ├── contracts/               # Shared type contracts, API envelopes & socket events (@repo/contracts)
-│   ├── ui/                      # Reusable UI component library (@repo/ui)
-│   ├── eslint-config/           # Shared ESLint 10 flat configurations (@repo/eslint-config)
-│   └── typescript-config/       # Shared TypeScript 7 compiler configs (@repo/typescript-config)
+│   ├── contracts/       # Shared types and API contracts
+│   ├── ui/              # Shared UI components
+│   ├── eslint-config/
+│   └── typescript-config/
 ├── netlify/
-│   └── functions/               # Root Netlify serverless functions (`api.ts`, `health.ts`)
-├── docs/                        # Architecture & design specifications
-├── netlify.toml                 # Netlify deployment pipeline and URL redirect rules
-├── package.json                 # Monorepo root configuration (pnpm workspace)
-├── pnpm-workspace.yaml          # Monorepo package directories
-└── turbo.json                   # Turborepo task pipeline configuration
+│   └── functions/       # Netlify serverless functions
+├── docs/
+├── netlify.toml
+├── package.json
+├── pnpm-workspace.yaml
+└── turbo.json
 ```
 
----
+## Requirements
 
-## 2. Prerequisites
+- Node.js >= 24
+- pnpm 11.25.0
+- MongoDB 6.0 or later
 
-- **Node.js**: `>=24` (verified with `v24.20.0`)
-- **pnpm**: `11.25.0` (managed via Corepack or direct pnpm)
-- **MongoDB**: `>=6.0` (or MongoDB Atlas for cloud deployment)
+## Getting Started
 
----
-
-## 3. Quick Start & Local Development
-
-### Installation
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-### Environment Configuration
+### Environment Variables
 
-#### 1. Backend (`apps/server/.env`):
+Create the backend environment file:
 
 ```bash
 cp apps/server/.env.example apps/server/.env
 ```
 
-Default variables:
-```ini
-PORT=5000
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000,https://connectlyi.netlify.app
-MONGODB_URI=mongodb://localhost:27017/connectly
-JWT_ACCESS_SECRET=dev_access_secret_change_in_production_min_32_chars
-JWT_REFRESH_SECRET=dev_refresh_secret_change_in_production_min_32_chars
-COOKIE_SECRET=dev_cookie_secret_change_in_production_min_32_chars
-```
-
-#### 2. Frontend (`apps/web/.env.local`):
+Create the frontend environment file:
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-Default variables:
-```ini
+Backend configuration:
+
+```env
+PORT=5000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:3000
+MONGODB_URI=mongodb://localhost:27017/connectly
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+COOKIE_SECRET=your_cookie_secret
+```
+
+Frontend configuration:
+
+```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
 NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 ```
 
 ### Database Seeding
 
-Populate development database with demo accounts and conversation history:
-
 ```bash
 pnpm --filter server seed
 ```
 
-### Running Applications
+### Development
+
+Run all applications:
 
 ```bash
-# Run both frontend and backend concurrently via Turborepo
 pnpm dev
+```
 
-# Run only the Next.js frontend (http://localhost:3000)
+Run the frontend:
+
+```bash
 pnpm dev:web
+```
 
-# Run only the Express backend (http://localhost:5000)
+Run the backend:
+
+```bash
 pnpm dev:server
 ```
 
----
-
-## 4. Verification & Quality Commands
+## Scripts
 
 ```bash
-# Type check all workspaces
-pnpm check-types
-
-# Lint all workspaces (ESLint 10 flat config)
-pnpm lint
-
-# Run automated tests (113 tests across workspaces)
-pnpm test
-
-# Build production assets for all workspaces
 pnpm build
+pnpm lint
+pnpm check-types
+pnpm test
 ```
 
----
+## Deployment
 
-## 5. Netlify Production Deployment Configuration
+Connectly is deployed using a single Netlify site connected to the Turborepo repository.
 
-### Web Frontend Deployment (`https://connectlyi.netlify.app/`)
-- **Base directory**: `apps/web` (or root with `--filter web`)
-- **Build command**: `pnpm --filter web build`
-- **Publish directory**: `apps/web/.next`
-- **Environment variables**:
-  - `NEXT_PUBLIC_API_URL`: `https://connectlyi-api.netlify.app/api`
-  - `NEXT_PUBLIC_SOCKET_URL`: `https://connectlyi-api.netlify.app`
+| Setting | Value |
+|---|---|
+| Base directory | `/` |
+| Package directory | `apps/web` |
+| Build command | `pnpm build` |
+| Publish directory | Leave empty |
+| Functions directory | `netlify/functions` |
+| Runtime | Next.js |
 
-### Backend API Deployment (`https://connectlyi-api.netlify.app/`)
-- **Base directory**: `/` (or `apps/server`)
-- **Build command**: `pnpm --filter server build`
-- **Publish directory**: `apps/server/dist`
-- **Functions directory**: `netlify/functions`
-- **Environment variables**:
-  - `NODE_ENV`: `production`
-  - `CORS_ORIGIN`: `https://connectlyi.netlify.app`
-  - `MONGODB_URI`: `<your-mongodb-atlas-uri>`
-  - `JWT_ACCESS_SECRET`: `<secure-random-32+-char-string>`
-  - `JWT_REFRESH_SECRET`: `<secure-random-32+-char-string>`
-  - `COOKIE_SECRET`: `<secure-random-32+-char-string>`
+The root build command should build the required workspace dependencies and applications.
 
----
+### Environment Variables
 
-## 6. Architecture & Implementation Guide
+Configure these variables in Netlify:
 
-For in-depth architectural specifications, multi-session presence tracking, read cursor data models, and socket idempotency workflows, refer to [`docs/architecture.md`](./docs/architecture.md).
+```env
+NODE_ENV=production
+NEXT_PUBLIC_API_URL=https://connectlye.netlify.app/api
+NEXT_PUBLIC_SOCKET_URL=https://connectlye.netlify.app
+CORS_ORIGIN=https://connectlye.netlify.app
+MONGODB_URI=your_mongodb_atlas_uri
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+COOKIE_SECRET=your_cookie_secret
+```
+
+Keep database credentials and authentication secrets server-side.
+
+### Routing
+
+| Path | Destination |
+|---|---|
+| `/` | Next.js |
+| `/dashboard` | Next.js |
+| `/api/*` | Express API |
+| `/health` | Health function |
+
+## Documentation
+
+See [docs/architecture.md](./docs/architecture.md) for application architecture, database models, presence tracking, message delivery, and Socket.IO implementation details.
