@@ -8,13 +8,14 @@ import { SocketContext } from "../context/SocketContext";
 import { usePresence } from "../hooks/usePresence";
 import { useTypingIndicator } from "../hooks/useTypingIndicator";
 import type { ChatMessage, ChatParticipant } from "../types/chat";
+import type { AttachmentDto } from "@repo/contracts/chat";
 
 interface ActiveConversationViewProps {
   conversationId?: string;
   participant: ChatParticipant;
   messages: ChatMessage[];
   currentUserId: string;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content?: string, attachment?: AttachmentDto) => void;
   onBack?: () => void;
 }
 
@@ -52,9 +53,9 @@ export function ActiveConversationView({
     .charAt(0)
     .toUpperCase();
 
-  const handleSend = (content: string) => {
+  const handleSend = (content?: string, attachment?: AttachmentDto) => {
     stopTypingImmediate();
-    onSendMessage(content);
+    onSendMessage(content, attachment);
   };
 
   return (

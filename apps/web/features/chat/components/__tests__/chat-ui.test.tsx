@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MessageBubble } from "../MessageBubble";
 import { MessageComposer } from "../MessageComposer";
 import { ConversationList } from "../ConversationList";
@@ -10,6 +10,7 @@ import { NewChatModal } from "../NewChatModal";
 import { ThemeToggle } from "../../../../components/theme-toggle";
 import { SocketContext } from "../../context/SocketContext";
 import { formatLastSeen } from "../../hooks/usePresence";
+import { chatApi } from "../../services/chat.api";
 import type { ChatMessage, ConversationSummary, ChatParticipant } from "../../types/chat";
 
 describe("MessageBubble", () => {
@@ -34,6 +35,56 @@ describe("MessageBubble", () => {
 
     expect(screen.getByText("Hello world!")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Status:/)).not.toBeInTheDocument();
+  });
+
+  it("renders image attachment and opens lightbox modal when clicked", () => {
+    const imgMessage: ChatMessage = {
+      ...baseMessage,
+      attachment: {
+        url: "/api/media/vacation.jpg",
+        type: "image",
+        name: "vacation.jpg",
+        size: 512000,
+        mimeType: "image/jpeg",
+      },
+    };
+
+    render(<MessageBubble message={imgMessage} isCurrentUser={true} />);
+
+    const img = screen.getByTestId("attachment-image");
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "/api/media/vacation.jpg");
+
+    // Click image to open lightbox modal
+    fireEvent.click(img);
+    expect(screen.getByTestId("image-lightbox-modal")).toBeInTheDocument();
+    expect(screen.getByText("vacation.jpg")).toBeInTheDocument();
+
+    // Click close button
+    const closeBtn = screen.getByTitle("Close");
+    fireEvent.click(closeBtn);
+    expect(screen.queryByTestId("image-lightbox-modal")).not.toBeInTheDocument();
+  });
+
+  it("renders document attachment card with file details and download link", () => {
+    const fileMessage: ChatMessage = {
+      ...baseMessage,
+      attachment: {
+        url: "/api/media/invoice.pdf",
+        type: "file",
+        name: "invoice.pdf",
+        size: 1048576,
+        mimeType: "application/pdf",
+      },
+    };
+
+    render(<MessageBubble message={fileMessage} isCurrentUser={false} />);
+
+    const fileCard = screen.getByTestId("attachment-file");
+    expect(fileCard).toBeInTheDocument();
+    expect(screen.getByText("invoice.pdf")).toBeInTheDocument();
+    expect(screen.getByText("1.0 MB")).toBeInTheDocument();
+    expect(fileCard).toHaveAttribute("href", "/api/media/invoice.pdf?download=1");
   });
 });
 
@@ -85,6 +136,53 @@ describe("MessageComposer", () => {
     fireEvent.change(textarea, { target: { value: "   " } });
     const sendButton = screen.getByLabelText("Send message");
     expect(sendButton).toBeDisabled();
+  });
+
+  it("handles file attachment upload, displays preview pill, and removes attachment", async () => {
+    const uploadSpy = vi.spyOn(chatApi, "uploadMedia").mockResolvedValueOnce({
+      url: "/api/media/doc.pdf",
+      type: "file",
+      name: "doc.pdf",
+      size: 2048,
+      mimeType: "application/pdf",
+    });
+
+    const handleSend = vi.fn();
+    render(<MessageComposer onSendMessage={handleSend} />);
+
+    const fileInput = screen.getByTestId("file-attachment-input");
+    const fakeFile = new File(["test-content"], "doc.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [fakeFile] } });
+    });
+
+    expect(uploadSpy).toHaveBeenCalledWith(fakeFile);
+    expect(screen.getByTestId("attachment-preview")).toBeInTheDocument();
+    expect(screen.getByText("doc.pdf")).toBeInTheDocument();
+
+    // Send button should be enabled even without text content
+    const sendButton = screen.getByLabelText("Send message");
+    expect(sendButton).not.toBeDisabled();
+
+    // Remove attachment
+    const removeBtn = screen.getByLabelText("Remove attachment");
+    fireEvent.click(removeBtn);
+    expect(screen.queryByTestId("attachment-preview")).not.toBeInTheDocument();
+    expect(sendButton).toBeDisabled();
+  });
+
+  it("rejects files larger than 10MB with an error alert", async () => {
+    render(<MessageComposer onSendMessage={vi.fn()} />);
+
+    const fileInput = screen.getByTestId("file-attachment-input");
+    const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], "huge.pdf", {
+      type: "application/pdf",
+    });
+
+    fireEvent.change(fileInput, { target: { files: [largeFile] } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("File size exceeds 10MB limit");
   });
 });
 

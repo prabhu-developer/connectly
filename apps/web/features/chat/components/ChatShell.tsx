@@ -87,6 +87,7 @@ export function ChatShell() {
     conversationId: m.conversationId,
     senderId: m.senderId,
     content: m.content,
+    attachment: m.attachment,
     status: m.status,
     createdAt: m.createdAt,
     clientTempId: m.clientTempId,
