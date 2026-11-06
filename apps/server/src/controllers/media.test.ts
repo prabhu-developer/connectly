@@ -209,6 +209,47 @@ describe("Media Upload & Attachment Sharing", () => {
       expect(res.status).toBe(200);
       expect(res.text).toBe("test-media-stream-content");
     });
+
+    it("should successfully stream media file using ?token= query parameter (for img elements)", async () => {
+      const textBuffer = Buffer.from("query-token-stream-content");
+      const uploadRes = await request(app)
+        .post("/api/media/upload")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .attach("file", textBuffer, {
+          filename: "image.txt",
+          contentType: "text/plain",
+        });
+
+      expect(uploadRes.status).toBe(201);
+      const filename = path.basename(uploadRes.body.data.url);
+
+      const res = await request(app)
+        .get(`/api/media/${filename}?token=${tokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe("query-token-stream-content");
+    });
+
+    it("should successfully stream media file using connectly_access cookie (for browser navigation)", async () => {
+      const textBuffer = Buffer.from("cookie-stream-content");
+      const uploadRes = await request(app)
+        .post("/api/media/upload")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .attach("file", textBuffer, {
+          filename: "cookie.txt",
+          contentType: "text/plain",
+        });
+
+      expect(uploadRes.status).toBe(201);
+      const filename = path.basename(uploadRes.body.data.url);
+
+      const res = await request(app)
+        .get(`/api/media/${filename}`)
+        .set("Cookie", [`connectly_access=${tokenA}`]);
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe("cookie-stream-content");
+    });
   });
 
   describe("Message with Attachment Integration", () => {

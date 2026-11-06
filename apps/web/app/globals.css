@@ -53,3 +53,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+iframe#nl-badge-frame {
+  display: none !important;
+}

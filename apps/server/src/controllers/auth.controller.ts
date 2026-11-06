@@ -6,6 +6,7 @@ import { env } from "../config/env.js";
 import { AppError } from "../middleware/error.middleware.js";
 
 export const REFRESH_COOKIE_NAME = "connectly_refresh";
+export const ACCESS_COOKIE_NAME = "connectly_access";
 
 const getCookieOptions = () => ({
   httpOnly: true,
@@ -13,6 +14,14 @@ const getCookieOptions = () => ({
   sameSite: "lax" as const,
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+});
+
+const getAccessCookieOptions = () => ({
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 15 * 60 * 1000, // 15 minutes (matches accessToken lifetime)
 });
 
 export async function handleRegister(
@@ -29,6 +38,7 @@ export async function handleRegister(
     });
 
     res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, getCookieOptions());
+    res.cookie(ACCESS_COOKIE_NAME, result.accessToken, getAccessCookieOptions());
 
     res.status(201).json({
       success: true,
@@ -56,6 +66,7 @@ export async function handleLogin(
     });
 
     res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, getCookieOptions());
+    res.cookie(ACCESS_COOKIE_NAME, result.accessToken, getAccessCookieOptions());
 
     res.status(200).json({
       success: true,
@@ -87,6 +98,7 @@ export async function handleRefresh(
     });
 
     res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, getCookieOptions());
+    res.cookie(ACCESS_COOKIE_NAME, result.accessToken, getAccessCookieOptions());
 
     res.status(200).json({
       success: true,
@@ -96,8 +108,9 @@ export async function handleRefresh(
       },
     });
   } catch (err) {
-    // If refresh fails, ensure stale cookie is cleared
+    // If refresh fails, ensure stale cookies are cleared
     res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
+    res.clearCookie(ACCESS_COOKIE_NAME, { path: "/" });
     next(err);
   }
 }
@@ -113,6 +126,7 @@ export async function handleLogout(
     await authService.logout(rawRefreshToken);
 
     res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
+    res.clearCookie(ACCESS_COOKIE_NAME, { path: "/" });
 
     res.status(200).json({
       success: true,

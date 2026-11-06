@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Check, CheckCheck, Clock, FileText, Download, X } from "lucide-react";
 import type { ChatMessage } from "../types/chat";
 import { formatFileSize } from "../types/chat";
+import { getAccessToken } from "../../../lib/api-client";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -23,6 +24,15 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const formattedTime = formatMessageTime(message.createdAt);
   const { attachment } = message;
+  const token = getAccessToken();
+  const mediaUrl =
+    attachment && token
+      ? `${attachment.url}${attachment.url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+      : attachment?.url;
+  const downloadUrl =
+    attachment
+      ? `${attachment.url}?download=1${token ? `&token=${encodeURIComponent(token)}` : ""}`
+      : "";
 
   return (
     <>
@@ -45,7 +55,7 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
                   {/* Image Thumbnail */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={attachment.url}
+                    src={mediaUrl}
                     alt={attachment.name || "Attached photo"}
                     onClick={() => setIsLightboxOpen(true)}
                     className="max-h-64 sm:max-h-80 w-auto rounded-lg object-cover cursor-pointer transition-opacity hover:opacity-95"
@@ -55,7 +65,7 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
               ) : (
                 /* File Document Card */
                 <a
-                  href={`${attachment.url}?download=1`}
+                  href={downloadUrl}
                   download={attachment.name}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -134,7 +144,7 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
           >
             <div className="absolute -top-10 right-0 flex items-center gap-2">
               <a
-                href={`${attachment.url}?download=1`}
+                href={downloadUrl}
                 download={attachment.name}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -154,7 +164,7 @@ export function MessageBubble({ message, isCurrentUser }: MessageBubbleProps) {
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={attachment.url}
+              src={mediaUrl}
               alt={attachment.name || "Full preview"}
               className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
             />
