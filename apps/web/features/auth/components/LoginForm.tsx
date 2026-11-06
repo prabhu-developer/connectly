@@ -22,6 +22,7 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -133,6 +134,41 @@ export function LoginForm() {
         >
           Create one now
         </Link>
+      </div>
+
+      {/* Demo Credentials Quick-Fill Helper */}
+      <div className="mt-6 p-4 rounded-xl bg-muted/50 border border-border/80 text-xs text-muted-foreground">
+        <div className="font-semibold text-foreground mb-2 flex items-center justify-between">
+          <span>Demo Accounts</span>
+          <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-primary/10 text-primary">Click to fill</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setValue("identifier", "alice@connectly.dev");
+              setValue("password", "Password123!");
+            }}
+            className="p-2 text-left rounded-lg bg-background border border-border/60 hover:border-primary/50 transition cursor-pointer"
+          >
+            <div className="font-medium text-foreground">Alice Johnson</div>
+            <div className="text-[11px] truncate text-muted-foreground">alice@connectly.dev</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setValue("identifier", "bob@connectly.dev");
+              setValue("password", "Password123!");
+            }}
+            className="p-2 text-left rounded-lg bg-background border border-border/60 hover:border-primary/50 transition cursor-pointer"
+          >
+            <div className="font-medium text-foreground">Bob Smith</div>
+            <div className="text-[11px] truncate text-muted-foreground">bob@connectly.dev</div>
+          </button>
+        </div>
+        <div className="mt-2 text-[11px] text-center text-muted-foreground/80">
+          Password: <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-foreground font-semibold">Password123!</code>
+        </div>
       </div>
     </div>
   );

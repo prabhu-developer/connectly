@@ -3,7 +3,8 @@ import type { ApiResponse } from "@repo/contracts/api";
 import type { AuthResponseData } from "@repo/contracts/auth";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? "/api" : process.env.API_URL || "http://localhost:5000/api");
 
 // In-memory access token storage
 let currentAccessToken: string | null = null;

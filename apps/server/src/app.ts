@@ -13,9 +13,20 @@ export function createApp(): Express {
 
   // Security & Ingress Middleware
   app.use(helmet());
+  const allowedOrigins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: (requestOrigin, callback) => {
+        if (
+          !requestOrigin ||
+          allowedOrigins.includes(requestOrigin) ||
+          allowedOrigins.includes("*") ||
+          requestOrigin.endsWith(".netlify.app")
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      },
       credentials: true,
     })
   );

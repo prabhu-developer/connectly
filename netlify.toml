@@ -1,20 +1,20 @@
 [build]
-  command = "pnpm --filter server build"
-  publish = "apps/server/dist"
+  command = "pnpm build"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Root and health checks
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# 1. Health check endpoints
 [[redirects]]
   from = "/health"
-  to = "/.netlify/functions/health"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/"
   to = "/.netlify/functions/health"
   status = 200
   force = true
@@ -25,15 +25,9 @@
   status = 200
   force = true
 
-# Express API routes
+# 2. Express Backend API routes
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"
   status = 200
   force = true
-
-# Fallback catch-all to serverless API
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200

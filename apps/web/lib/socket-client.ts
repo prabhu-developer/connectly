@@ -5,7 +5,9 @@ const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ||
   (process.env.NEXT_PUBLIC_API_URL
     ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, "")
-    : "http://localhost:5000");
+    : typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:5000");
 
 let socketInstance: Socket | null = null;
 

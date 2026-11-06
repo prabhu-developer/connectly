@@ -14,12 +14,6 @@
   force = true
 
 [[redirects]]
-  from = "/"
-  to = "/.netlify/functions/health"
-  status = 200
-  force = true
-
-[[redirects]]
   from = "/api/health"
   to = "/.netlify/functions/health"
   status = 200
@@ -31,9 +25,3 @@
   to = "/.netlify/functions/api/api/:splat"
   status = 200
   force = true
-
-# Fallback catch-all to serverless API
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
