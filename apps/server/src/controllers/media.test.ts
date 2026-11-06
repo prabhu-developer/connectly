@@ -2,14 +2,13 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
-import fs from "node:fs";
 import path from "node:path";
 import { createApp } from "../app.js";
 import { User, type UserDocument } from "../models/user.model.js";
 import { Conversation } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
+import { Media } from "../models/media.model.js";
 import { signAccessToken } from "../utils/token.utils.js";
-import { UPLOAD_DIR } from "../config/multer.config.js";
 
 describe("Media Upload & Attachment Sharing", () => {
   let mongod: MongoMemoryServer;
@@ -23,7 +22,7 @@ describe("Media Upload & Attachment Sharing", () => {
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri(), { autoIndex: true });
-    await Promise.all([User.init(), Conversation.init(), Message.init()]);
+    await Promise.all([User.init(), Conversation.init(), Message.init(), Media.init()]);
   }, 30000);
 
   afterAll(async () => {
@@ -36,6 +35,7 @@ describe("Media Upload & Attachment Sharing", () => {
       User.deleteMany({}),
       Conversation.deleteMany({}),
       Message.deleteMany({}),
+      Media.deleteMany({}),
     ]);
 
     userA = await User.create({
@@ -90,12 +90,36 @@ describe("Media Upload & Attachment Sharing", () => {
       expect(res.body.error.code).toBe("INVALID_FILE_TYPE");
     });
 
-    it("should successfully upload an image and return AttachmentDto with type image", async () => {
-      const fakePngBuffer = Buffer.from("fake-png-image-bytes");
+    it("should reject image files larger than 5MB with 413", async () => {
+      const hugeImage = Buffer.alloc(6 * 1024 * 1024);
+      hugeImage[0] = 0x89;
+      hugeImage[1] = 0x50;
+      hugeImage[2] = 0x4e;
+      hugeImage[3] = 0x47;
+      hugeImage[4] = 0x0d;
+      hugeImage[5] = 0x0a;
+      hugeImage[6] = 0x1a;
+      hugeImage[7] = 0x0a;
+
       const res = await request(app)
         .post("/api/media/upload")
         .set("Authorization", `Bearer ${tokenA}`)
-        .attach("file", fakePngBuffer, {
+        .attach("file", hugeImage, {
+          filename: "huge.png",
+          contentType: "image/png",
+        });
+
+      expect(res.status).toBe(413);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe("FILE_TOO_LARGE");
+    });
+
+    it("should successfully upload an image and return AttachmentDto with type image and store metadata in MongoDB", async () => {
+      const validPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Buffer.from("valid-png")]);
+      const res = await request(app)
+        .post("/api/media/upload")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .attach("file", validPng, {
           filename: "screenshot.png",
           contentType: "image/png",
         });
@@ -106,24 +130,27 @@ describe("Media Upload & Attachment Sharing", () => {
         type: "image",
         name: "screenshot.png",
         mimeType: "image/png",
-        size: fakePngBuffer.length,
+        size: validPng.length,
       });
       expect(res.body.data.url).toMatch(/^\/api\/media\//);
 
-      // Clean up uploaded test file
+      // Verify MongoDB record
       const filename = path.basename(res.body.data.url);
-      const filePath = path.join(UPLOAD_DIR, filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      const media = await Media.findOne({ filename });
+      expect(media).toBeDefined();
+      expect(media?.originalName).toBe("screenshot.png");
+      expect(media?.mimeType).toBe("image/png");
+      expect(media?.size).toBe(validPng.length);
+      expect(media?.uploaderId.toString()).toBe(userA._id.toString());
+      expect(media?.storageKey).toContain("connectly/images");
     });
 
-    it("should successfully upload a PDF document and return AttachmentDto with type file", async () => {
-      const fakePdfBuffer = Buffer.from("%PDF-1.4 fake pdf data");
+    it("should successfully upload a PDF document and return AttachmentDto with type file and store metadata in MongoDB", async () => {
+      const validPdf = Buffer.from("%PDF-1.4 fake pdf data");
       const res = await request(app)
         .post("/api/media/upload")
         .set("Authorization", `Bearer ${tokenA}`)
-        .attach("file", fakePdfBuffer, {
+        .attach("file", validPdf, {
           filename: "document.pdf",
           contentType: "application/pdf",
         });
@@ -134,15 +161,16 @@ describe("Media Upload & Attachment Sharing", () => {
         type: "file",
         name: "document.pdf",
         mimeType: "application/pdf",
-        size: fakePdfBuffer.length,
+        size: validPdf.length,
       });
 
-      // Clean up uploaded test file
+      // Verify MongoDB record
       const filename = path.basename(res.body.data.url);
-      const filePath = path.join(UPLOAD_DIR, filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      const media = await Media.findOne({ filename });
+      expect(media).toBeDefined();
+      expect(media?.originalName).toBe("document.pdf");
+      expect(media?.mimeType).toBe("application/pdf");
+      expect(media?.storageKey).toContain("connectly/documents");
     });
   });
 
@@ -162,23 +190,24 @@ describe("Media Upload & Attachment Sharing", () => {
     });
 
     it("should successfully stream an existing uploaded file", async () => {
-      // Create a test file in UPLOAD_DIR
-      const testFileName = `test-${Date.now()}.txt`;
-      const testFilePath = path.join(UPLOAD_DIR, testFileName);
-      fs.writeFileSync(testFilePath, "test-media-stream-content");
+      const textBuffer = Buffer.from("test-media-stream-content");
+      const uploadRes = await request(app)
+        .post("/api/media/upload")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .attach("file", textBuffer, {
+          filename: "notes.txt",
+          contentType: "text/plain",
+        });
 
-      try {
-        const res = await request(app)
-          .get(`/api/media/${testFileName}`)
-          .set("Authorization", `Bearer ${tokenA}`);
+      expect(uploadRes.status).toBe(201);
+      const filename = path.basename(uploadRes.body.data.url);
 
-        expect(res.status).toBe(200);
-        expect(res.text).toBe("test-media-stream-content");
-      } finally {
-        if (fs.existsSync(testFilePath)) {
-          fs.unlinkSync(testFilePath);
-        }
-      }
+      const res = await request(app)
+        .get(`/api/media/${filename}`)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe("test-media-stream-content");
     });
   });
 

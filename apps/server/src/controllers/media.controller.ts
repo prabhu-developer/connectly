@@ -1,9 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import path from "node:path";
-import fs from "node:fs";
+import { Readable } from "node:stream";
 import { AppError } from "../middleware/error.middleware.js";
-import { UPLOAD_DIR } from "../config/multer.config.js";
-import type { AttachmentDto } from "@repo/contracts/chat";
+import { mediaService } from "../services/media.service.js";
 
 export async function uploadMedia(
   req: Request,
@@ -15,14 +14,14 @@ export async function uploadMedia(
       throw new AppError("No file uploaded", 400, "FILE_REQUIRED");
     }
 
-    const isImage = req.file.mimetype.startsWith("image/");
-    const attachment: AttachmentDto = {
-      url: `/api/media/${encodeURIComponent(req.file.filename)}`,
-      type: isImage ? "image" : "file",
-      name: req.file.originalname,
-      size: req.file.size,
-      mimeType: req.file.mimetype,
-    };
+    const userId = (req as unknown as { user?: { id?: string; _id?: string } }).user?.id ||
+      (req as unknown as { user?: { id?: string; _id?: string } }).user?._id;
+
+    if (!userId) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const { attachment } = await mediaService.processAndUpload(req.file, userId);
 
     res.status(201).json({
       success: true,
@@ -45,25 +44,46 @@ export async function getMedia(
       throw new AppError("Filename is required", 400, "INVALID_FILENAME");
     }
 
-    // Guard against path traversal
     const safeFilename = path.basename(rawFilename);
-    const resolvedPath = path.resolve(UPLOAD_DIR, safeFilename);
+    const media = await mediaService.getMediaByFilename(safeFilename);
 
-    // Verify resolved path stays strictly within UPLOAD_DIR
-    if (!resolvedPath.startsWith(path.resolve(UPLOAD_DIR))) {
-      throw new AppError("Invalid file path", 400, "INVALID_PATH");
-    }
-
-    if (!fs.existsSync(resolvedPath)) {
+    if (!media) {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
     const isDownload = req.query.download === "1" || req.query.download === "true";
-    if (isDownload) {
-      res.download(resolvedPath, safeFilename);
-    } else {
-      res.sendFile(resolvedPath);
+    const disposition = isDownload ? "attachment" : "inline";
+
+    res.setHeader(
+      "Content-Disposition",
+      `${disposition}; filename="${encodeURIComponent(media.originalName)}"`
+    );
+    res.setHeader("Content-Type", media.mimeType);
+
+    // 1. If buffer is cached in memory (e.g. during test executions)
+    const cached = mediaService.getTestCachedBuffer(safeFilename);
+    if (cached) {
+      res.status(200).send(cached.buffer);
+      return;
     }
+
+    // 2. Stream directly from Cloudinary
+    try {
+      const response = await fetch(media.url);
+      if (response.ok && response.body) {
+        res.status(200);
+        const stream = Readable.fromWeb(response.body as any);
+        stream.pipe(res);
+        return;
+      }
+    } catch {
+      // If direct streaming fails, redirect to Cloudinary CDN
+      res.redirect(302, media.url);
+      return;
+    }
+
+    // 3. Fallback: redirect to Cloudinary secure URL
+    res.redirect(302, media.url);
   } catch (err) {
     next(err);
   }

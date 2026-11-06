@@ -60,8 +60,14 @@ export function MessageComposer({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
+    // Validate size (5MB for images, 10MB for documents)
+    const isImage = file.type.startsWith("image/");
+    if (isImage && file.size > 5 * 1024 * 1024) {
+      setUploadError("Image file size exceeds 5MB limit");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (!isImage && file.size > 10 * 1024 * 1024) {
       setUploadError("File size exceeds 10MB limit");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;

@@ -12,7 +12,7 @@ function handleUploadMiddleware(req: Request, res: Response, next: NextFunction)
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
-          return next(new AppError("File size exceeds 10MB limit", 400, "FILE_TOO_LARGE"));
+          return next(new AppError("File size exceeds 10MB limit", 413, "FILE_TOO_LARGE"));
         }
         return next(new AppError(err.message, 400, "UPLOAD_ERROR"));
       }

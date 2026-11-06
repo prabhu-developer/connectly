@@ -1,6 +1,20 @@
 /* eslint-disable no-undef, turbo/no-undeclared-env-vars */
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
   async rewrites() {
     const rawTarget =
       process.env.API_URL ||
