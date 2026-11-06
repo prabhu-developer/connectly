@@ -99,8 +99,17 @@ export function ConversationList({
             >
               {/* Avatar with Presence Indicator */}
               <div className="relative shrink-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-base select-none">
-                  {initial}
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary font-semibold text-base select-none">
+                  {conv.participant.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={conv.participant.avatarUrl}
+                      alt={conv.participant.displayName || conv.participant.username}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{initial}</span>
+                  )}
                 </div>
                 {isOnline && (
                   <span

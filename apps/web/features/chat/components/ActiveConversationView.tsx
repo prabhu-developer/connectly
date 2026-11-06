@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { ArrowLeft } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
+import { ParticipantProfileModal } from "./ParticipantProfileModal";
 import { SocketContext } from "../context/SocketContext";
 import { usePresence } from "../hooks/usePresence";
 import { useTypingIndicator } from "../hooks/useTypingIndicator";
@@ -27,6 +28,7 @@ export function ActiveConversationView({
   onSendMessage,
   onBack,
 }: ActiveConversationViewProps) {
+  const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketCtx = useContext(SocketContext);
 
@@ -77,35 +79,53 @@ export function ActiveConversationView({
             </button>
           )}
 
-          <div className="relative shrink-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm select-none">
-              {participantInitial}
-            </div>
-            {isOnline && (
-              <span
-                title="Online"
-                className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500"
-                aria-label="Online"
-              />
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-foreground">
-              {participant.displayName || participant.username}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {typingIndicatorText ? (
-                <span className="text-primary font-medium italic animate-pulse">
-                  {typingIndicatorText}
-                </span>
-              ) : isOnline ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
-              ) : (
-                statusText
+          <button
+            type="button"
+            onClick={() => setIsContactInfoOpen(true)}
+            title="View contact info"
+            aria-label="View contact info"
+            className="flex items-center gap-3 text-left rounded-lg p-1 -ml-1 transition-colors hover:bg-muted/60"
+            data-testid="contact-info-trigger"
+          >
+            <div className="relative shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary font-semibold text-sm select-none">
+                {participant.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={participant.avatarUrl}
+                    alt={participant.displayName || participant.username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{participantInitial}</span>
+                )}
+              </div>
+              {isOnline && (
+                <span
+                  title="Online"
+                  className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500"
+                  aria-label="Online"
+                />
               )}
-            </p>
-          </div>
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-foreground">
+                {participant.displayName || participant.username}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {typingIndicatorText ? (
+                  <span className="text-primary font-medium italic animate-pulse">
+                    {typingIndicatorText}
+                  </span>
+                ) : isOnline ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
+                ) : (
+                  statusText
+                )}
+              </p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -134,8 +154,15 @@ export function ActiveConversationView({
 
       {/* Message Composer */}
       <MessageComposer onSendMessage={handleSend} onTyping={onUserKeypress} />
+
+      {/* Contact Profile Modal */}
+      <ParticipantProfileModal
+        isOpen={isContactInfoOpen}
+        onClose={() => setIsContactInfoOpen(false)}
+        participant={participant}
+        isOnline={isOnline}
+        statusText={statusText}
+      />
     </div>
   );
 }
-
-

@@ -12,6 +12,7 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updatedUser: Partial<AuthUserDto>) => void;
   clearError: () => void;
 }
 
@@ -103,6 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updateUser = useCallback((updatedUser: Partial<AuthUserDto>) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedUser } : null));
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   const value: AuthContextValue = {
@@ -113,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
+    updateUser,
     clearError,
   };
 

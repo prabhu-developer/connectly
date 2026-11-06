@@ -114,8 +114,13 @@ export function NewChatModal({ isOpen, onClose, onSelectUser }: NewChatModalProp
                 }}
                 className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-muted/80"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-                  {u.displayName.charAt(0).toUpperCase()}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary font-bold text-sm">
+                  {u.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <span>{u.displayName.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">

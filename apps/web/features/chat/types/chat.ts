@@ -7,6 +7,7 @@ export interface ChatParticipant {
   username: string;
   displayName?: string;
   avatarUrl?: string;
+  bio?: string;
   isOnline: boolean;
   lastSeenAt?: string;
 }

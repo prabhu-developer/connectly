@@ -55,6 +55,7 @@ export function ChatShell() {
         username: selectedConversation.participant.username,
         displayName: selectedConversation.participant.displayName,
         avatarUrl: selectedConversation.participant.avatarUrl,
+        bio: selectedConversation.participant.bio,
         isOnline: false, // Updated dynamically via usePresence
         lastSeenAt: selectedConversation.participant.lastSeenAt,
       }
@@ -67,6 +68,7 @@ export function ChatShell() {
       username: c.participant.username,
       displayName: c.participant.displayName,
       avatarUrl: c.participant.avatarUrl,
+      bio: c.participant.bio,
       isOnline: false,
       lastSeenAt: c.participant.lastSeenAt,
     },

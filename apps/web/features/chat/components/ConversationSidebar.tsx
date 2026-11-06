@@ -6,6 +6,7 @@ import { ThemeToggle } from "../../../components/theme-toggle";
 import { useAuthSession } from "../../auth/hooks/useAuthSession";
 import { ConversationList } from "./ConversationList";
 import { NewChatModal } from "./NewChatModal";
+import { ProfileModal } from "./ProfileModal";
 import type { ConversationSummary } from "../types/chat";
 
 interface ConversationSidebarProps {
@@ -21,9 +22,10 @@ export function ConversationSidebar({
   onSelectConversation,
   onStartNewConversation,
 }: ConversationSidebarProps) {
-  const { user, logout } = useAuthSession();
+  const { user, logout, updateUser } = useAuthSession();
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const userInitial = (user?.displayName || user?.username || "U").charAt(0).toUpperCase();
 
@@ -38,9 +40,24 @@ export function ConversationSidebar({
     >
       {/* Profile Header */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4 py-2">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm select-none">
-            {userInitial}
+        <button
+          type="button"
+          onClick={() => setIsProfileOpen(true)}
+          title="View and edit profile"
+          aria-label="Edit your profile"
+          className="flex items-center gap-3 overflow-hidden text-left rounded-lg p-1 -ml-1 transition-colors hover:bg-muted/60"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground font-semibold text-sm select-none shadow-xs">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.avatarUrl}
+                alt={user.displayName || user.username}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>{userInitial}</span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold text-foreground">
@@ -48,7 +65,7 @@ export function ConversationSidebar({
             </h2>
             <p className="truncate text-xs text-muted-foreground">@{user?.username || "connectly"}</p>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -111,6 +128,14 @@ export function ConversationSidebar({
         isOpen={isNewChatOpen}
         onClose={() => setIsNewChatOpen(false)}
         onSelectUser={handleSelectRecipient}
+      />
+
+      {/* Current User Profile Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={user}
+        onProfileUpdated={updateUser}
       />
     </aside>
   );

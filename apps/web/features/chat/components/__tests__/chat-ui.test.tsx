@@ -7,11 +7,15 @@ import { ConversationList } from "../ConversationList";
 import { ActiveConversationView } from "../ActiveConversationView";
 import { EmptyState } from "../EmptyState";
 import { NewChatModal } from "../NewChatModal";
+import { ProfileModal } from "../ProfileModal";
+import { ParticipantProfileModal } from "../ParticipantProfileModal";
 import { ThemeToggle } from "../../../../components/theme-toggle";
 import { SocketContext } from "../../context/SocketContext";
 import { formatLastSeen } from "../../hooks/usePresence";
 import { chatApi } from "../../services/chat.api";
+import { userApi } from "../../../auth/services/user.api";
 import type { ChatMessage, ConversationSummary, ChatParticipant } from "../../types/chat";
+import type { AuthUserDto } from "@repo/contracts/auth";
 
 describe("MessageBubble", () => {
   const baseMessage: ChatMessage = {
@@ -410,5 +414,126 @@ describe("NewChatModal", () => {
     render(<NewChatModal isOpen={true} onClose={vi.fn()} onSelectUser={vi.fn()} />);
     expect(screen.getByText("New Conversation")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search by username or name...")).toBeInTheDocument();
+  });
+});
+
+describe("ProfileModal", () => {
+  const mockUser: AuthUserDto = {
+    id: "user-123",
+    email: "alice@example.com",
+    username: "alice",
+    displayName: "Alice Smith",
+    bio: "Hey there!",
+    createdAt: new Date().toISOString(),
+  };
+
+  it("does not render when isOpen is false", () => {
+    render(
+      <ProfileModal
+        isOpen={false}
+        onClose={vi.fn()}
+        currentUser={mockUser}
+        onProfileUpdated={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("profile-modal")).not.toBeInTheDocument();
+  });
+
+  it("renders user information when isOpen is true", () => {
+    render(
+      <ProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        currentUser={mockUser}
+        onProfileUpdated={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("profile-modal")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Hey there!")).toBeInTheDocument();
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+    expect(screen.getByText("alice@example.com")).toBeInTheDocument();
+  });
+
+  it("submits updated display name and bio", async () => {
+    const updateSpy = vi.spyOn(userApi, "updateProfile").mockResolvedValueOnce({
+      ...mockUser,
+      displayName: "Alice Wonderland",
+      bio: "Available",
+      updatedAt: new Date().toISOString(),
+    });
+    const handleUpdated = vi.fn();
+
+    render(
+      <ProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        currentUser={mockUser}
+        onProfileUpdated={handleUpdated}
+      />
+    );
+
+    const nameInput = screen.getByTestId("profile-display-name-input");
+    fireEvent.change(nameInput, { target: { value: "Alice Wonderland" } });
+
+    // Click quick status preset
+    const availableBtn = screen.getByText("Available");
+    fireEvent.click(availableBtn);
+
+    const saveBtn = screen.getByTestId("save-profile-button");
+    await act(async () => {
+      fireEvent.click(saveBtn);
+    });
+
+    expect(updateSpy).toHaveBeenCalledWith({
+      displayName: "Alice Wonderland",
+      bio: "Available",
+      avatarUrl: null,
+    });
+    expect(handleUpdated).toHaveBeenCalledWith({
+      displayName: "Alice Wonderland",
+      bio: "Available",
+      avatarUrl: undefined,
+    });
+  });
+});
+
+describe("ParticipantProfileModal", () => {
+  const participant: ChatParticipant = {
+    id: "p-456",
+    username: "bob",
+    displayName: "Bob Jones",
+    bio: "Busy coding",
+    isOnline: true,
+  };
+
+  it("does not render when isOpen is false", () => {
+    render(
+      <ParticipantProfileModal
+        isOpen={false}
+        onClose={vi.fn()}
+        participant={participant}
+        isOnline={true}
+      />
+    );
+    expect(screen.queryByTestId("participant-profile-modal")).not.toBeInTheDocument();
+  });
+
+  it("renders participant contact details when isOpen is true", () => {
+    render(
+      <ParticipantProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        participant={participant}
+        isOnline={true}
+      />
+    );
+
+    expect(screen.getByTestId("participant-profile-modal")).toBeInTheDocument();
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expect(screen.getByText("bob")).toBeInTheDocument();
+    expect(screen.getByText("Busy coding")).toBeInTheDocument();
+    expect(screen.getByText("Online now")).toBeInTheDocument();
   });
 });
