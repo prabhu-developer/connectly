@@ -11,6 +11,7 @@ import {
   type MessageAckPayload,
 } from "@repo/contracts/socket";
 import type { AttachmentDto, MessageDto } from "@repo/contracts/chat";
+import { playNotificationSound } from "../utils/sound";
 
 export function useChatMessages(conversationId: string | null, currentUserId: string) {
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -100,8 +101,9 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
         return [...prev, message];
       });
 
-      // If message is from other user, automatically mark as read
+      // If message is from other user, automatically mark as read & play sound
       if (message.senderId !== currentUserId) {
+        playNotificationSound();
         socket?.emit(SOCKET_EVENTS.CONVERSATION_READ, {
           conversationId: convIdRef.current,
           messageId: message.id,

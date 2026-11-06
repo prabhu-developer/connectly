@@ -9,6 +9,7 @@ import { EmptyState } from "../EmptyState";
 import { NewChatModal } from "../NewChatModal";
 import { ProfileModal } from "../ProfileModal";
 import { ParticipantProfileModal } from "../ParticipantProfileModal";
+import { SettingsModal } from "../SettingsModal";
 import { ThemeToggle } from "../../../../components/theme-toggle";
 import { SocketContext } from "../../context/SocketContext";
 import { formatLastSeen } from "../../hooks/usePresence";
@@ -366,6 +367,48 @@ describe("ActiveConversationView & Presence", () => {
 
     expect(screen.getByText("Bob is typing...")).toBeInTheDocument();
   });
+
+  it("opens message search panel, performs search and shows matches", async () => {
+    const searchSpy = vi.spyOn(chatApi, "searchMessages").mockResolvedValueOnce([
+      {
+        message: {
+          id: "msg-1",
+          conversationId: "conv-1",
+          senderId: "user-bob",
+          content: "Hello Alice!",
+          status: "read",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        matchSnippet: "Hello Alice!",
+      },
+    ]);
+
+    render(
+      <ActiveConversationView
+        conversationId="conv-1"
+        participant={participant}
+        messages={messages}
+        currentUserId="user-alice"
+        onSendMessage={vi.fn()}
+      />
+    );
+
+    // Click search button
+    const searchBtn = screen.getByTestId("conversation-search-button");
+    fireEvent.click(searchBtn);
+
+    expect(screen.getByTestId("conversation-search-panel")).toBeInTheDocument();
+    const searchInput = screen.getByTestId("conversation-search-input");
+
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: "Hello" } });
+    });
+
+    expect(searchSpy).toHaveBeenCalledWith("conv-1", "Hello");
+    expect(screen.getByTestId("conversation-search-results")).toBeInTheDocument();
+    expect(screen.getByText("1 match")).toBeInTheDocument();
+  });
 });
 
 describe("formatLastSeen utility", () => {
@@ -535,5 +578,61 @@ describe("ParticipantProfileModal", () => {
     expect(screen.getByText("bob")).toBeInTheDocument();
     expect(screen.getByText("Busy coding")).toBeInTheDocument();
     expect(screen.getByText("Online now")).toBeInTheDocument();
+  });
+});
+
+describe("SettingsModal", () => {
+  it("does not render when isOpen is false", () => {
+    render(<SettingsModal isOpen={false} onClose={vi.fn()} />);
+    expect(screen.queryByTestId("settings-modal")).not.toBeInTheDocument();
+  });
+
+  it("renders when isOpen is true and shows theme, notifications and chat controls", async () => {
+    vi.spyOn(userApi, "getSettings").mockResolvedValueOnce({
+      soundEnabled: true,
+      enterToSend: true,
+      desktopNotifications: false,
+      theme: "system",
+    });
+
+    await act(async () => {
+      render(<SettingsModal isOpen={true} onClose={vi.fn()} />);
+    });
+
+    expect(screen.getByTestId("settings-modal")).toBeInTheDocument();
+    expect(screen.getByText("Theme & Appearance")).toBeInTheDocument();
+    expect(screen.getByText("Message Sounds")).toBeInTheDocument();
+    expect(screen.getByText("Press Enter to Send")).toBeInTheDocument();
+  });
+
+  it("toggles sound and enter-to-send settings", async () => {
+    vi.spyOn(userApi, "getSettings").mockResolvedValueOnce({
+      soundEnabled: true,
+      enterToSend: true,
+      desktopNotifications: false,
+      theme: "system",
+    });
+    const updateSpy = vi.spyOn(userApi, "updateSettings").mockResolvedValue({
+      soundEnabled: false,
+      enterToSend: false,
+      desktopNotifications: false,
+      theme: "system",
+    });
+
+    await act(async () => {
+      render(<SettingsModal isOpen={true} onClose={vi.fn()} />);
+    });
+
+    const soundToggle = screen.getByTestId("toggle-sound");
+    await act(async () => {
+      fireEvent.click(soundToggle);
+    });
+    expect(updateSpy).toHaveBeenCalledWith({ soundEnabled: false });
+
+    const enterToggle = screen.getByTestId("toggle-enter-to-send");
+    await act(async () => {
+      fireEvent.click(enterToggle);
+    });
+    expect(updateSpy).toHaveBeenCalledWith({ enterToSend: false });
   });
 });
