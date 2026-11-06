@@ -31,6 +31,7 @@ export function createApp(): Express {
   }
 
   // Root & Health Checks
+  app.get("/", getHealth);
   app.get("/health", getHealth);
   app.use("/api", apiRouter);
 
