@@ -4,8 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  SECRETS_SCAN_OMIT_KEYS = "NODE_ENV,PORT,CORS_ORIGIN"
-  SECRETS_SCAN_OMIT_PATHS = "README.md,apps/server/README.md,apps/web/README.md,docs/**"
+  SECRETS_SCAN_OMIT_KEYS = "NODE_ENV,PORT,CORS_ORIGIN,CLOUDINARY_CLOUD_NAME"
+  SECRETS_SCAN_OMIT_PATHS = "README.md,apps/server/README.md,apps/web/README.md,docs/**,apps/server/.env.example,apps/web/.env.example"
 
 [functions]
   directory = "netlify/functions"

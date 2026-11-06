@@ -14,9 +14,9 @@ export function configureCloudinary(): typeof cloudinary {
       secure: true,
     });
     logger.info("☁️ Cloudinary initialized with CLOUDINARY_URL");
-  } else {
+  } else if (env.CLOUDINARY_CLOUD_NAME) {
     cloudinary.config({
-      cloud_name: env.CLOUDINARY_CLOUD_NAME || "dcjmxozzs",
+      cloud_name: env.CLOUDINARY_CLOUD_NAME,
       api_key: env.CLOUDINARY_API_KEY,
       api_secret: env.CLOUDINARY_API_SECRET,
       secure: true,
@@ -51,7 +51,7 @@ export async function uploadStreamToCloudinary(
     !env.CLOUDINARY_URL.includes("@");
 
   if (isMock) {
-    const cloudName = env.CLOUDINARY_CLOUD_NAME || "dcjmxozzs";
+    const cloudName = env.CLOUDINARY_CLOUD_NAME || "connectly_mock_cloud";
     const fullPublicId = `${options.folder}/${options.publicId}`;
     const secureUrl = `https://res.cloudinary.com/${cloudName}/${options.resourceType}/upload/v1/${fullPublicId}`;
 

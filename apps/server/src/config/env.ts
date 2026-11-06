@@ -13,7 +13,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16).default(process.env.JWT_REFRESH_SECRET || "connectly_default_dev_refresh_secret_key_32chars"),
   COOKIE_SECRET: z.string().min(16).default(process.env.COOKIE_SECRET || "connectly_default_dev_cookie_secret_key_32chars"),
   CLOUDINARY_URL: z.string().optional().default(() => process.env.CLOUDINARY_URL || ""),
-  CLOUDINARY_CLOUD_NAME: z.string().optional().default(() => process.env.CLOUDINARY_CLOUD_NAME || "dcjmxozzs"),
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(() => process.env.CLOUDINARY_CLOUD_NAME || ""),
   CLOUDINARY_API_KEY: z.string().optional().default(() => process.env.CLOUDINARY_API_KEY || ""),
   CLOUDINARY_API_SECRET: z.string().optional().default(() => process.env.CLOUDINARY_API_SECRET || ""),
 });
