@@ -4,8 +4,18 @@ import {
   type PresenceChangePayload,
   type PresenceSyncPayload,
   type TypingPayload,
+  type SendMessageSocketPayload,
+  type MessageAckPayload,
+  type MessageNewPayload,
+  type ConversationReadSocketPayload,
+  type ConversationReadUpdatePayload,
+  type MessageStatusUpdatePayload,
 } from "@repo/contracts/socket";
 import { presenceService } from "../services/presence.service.js";
+import { messageService } from "../services/message.service.js";
+import { readCursorService } from "../services/read-cursor.service.js";
+import { Conversation } from "../models/conversation.model.js";
+import { Message } from "../models/message.model.js";
 import { logger } from "../config/logger.js";
 
 export function registerSocketHandlers(io: Server): void {
@@ -85,7 +95,125 @@ export function registerSocketHandlers(io: Server): void {
       socket.to(room).emit(SOCKET_EVENTS.TYPING_STOP, payload);
     });
 
-    // 7. Disconnection & Multi-session Last Seen Persistence
+    // 7. Real-Time Message Sending with Idempotency & Delivery Tracking
+    socket.on(
+      SOCKET_EVENTS.MESSAGE_SEND,
+      async (data: SendMessageSocketPayload, callback?: (ack: MessageAckPayload) => void) => {
+        try {
+          if (!data?.conversationId || !data?.content) {
+            const errPayload: MessageAckPayload = {
+              success: false,
+              error: "conversationId and content are required",
+            };
+            if (typeof callback === "function") callback(errPayload);
+            return;
+          }
+
+          // Persist message first via transport-independent domain service
+          const message = await messageService.createMessage({
+            conversationId: data.conversationId,
+            senderId: user.id,
+            content: data.content,
+            clientTempId: data.clientTempId,
+          });
+
+          // Acknowledge back to sender
+          const ackPayload: MessageAckPayload = {
+            success: true,
+            message,
+          };
+          if (typeof callback === "function") {
+            callback(ackPayload);
+          }
+          socket.emit(SOCKET_EVENTS.MESSAGE_ACK, ackPayload);
+
+          // Find the recipient in the conversation
+          const conv = await Conversation.findById(data.conversationId).lean();
+          const recipientId = conv?.participants
+            .find((p) => p.toString() !== user.id)
+            ?.toString();
+
+          const newMsgPayload: MessageNewPayload = { message };
+
+          // Broadcast to conversation room and to recipient's personal room (union without duplicate delivery)
+          const messageTarget = socket.to(`conversation:${data.conversationId}`);
+          if (recipientId) {
+            messageTarget.to(`user:${recipientId}`);
+          }
+          messageTarget.emit(SOCKET_EVENTS.MESSAGE_NEW, newMsgPayload);
+
+          // If recipient has active connections, mark message as delivered
+          if (recipientId && presenceService.isUserOnline(recipientId)) {
+            await Message.findByIdAndUpdate(message.id, { status: "delivered" });
+            message.status = "delivered";
+
+            const statusPayload: MessageStatusUpdatePayload = {
+              conversationId: data.conversationId,
+              messageId: message.id,
+              status: "delivered",
+            };
+
+            io.to(`conversation:${data.conversationId}`).emit(
+              SOCKET_EVENTS.MESSAGE_STATUS_UPDATE,
+              statusPayload
+            );
+            io.to(`user:${user.id}`).emit(
+              SOCKET_EVENTS.MESSAGE_STATUS_UPDATE,
+              statusPayload
+            );
+          }
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : "Failed to send message";
+          logger.warn({ socketId: socket.id, err }, "Socket message send error");
+          const errPayload: MessageAckPayload = {
+            success: false,
+            error: errorMessage,
+          };
+          if (typeof callback === "function") callback(errPayload);
+        }
+      }
+    );
+
+    // 8. Real-Time Read Cursor Synchronization
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_READ,
+      async (data: ConversationReadSocketPayload, callback?: (ack: { success: boolean }) => void) => {
+        try {
+          if (!data?.conversationId || !data?.messageId) return;
+
+          await readCursorService.updateReadCursor(
+            data.conversationId,
+            user.id,
+            data.messageId
+          );
+
+          const readPayload: ConversationReadUpdatePayload = {
+            conversationId: data.conversationId,
+            userId: user.id,
+            messageId: data.messageId,
+          };
+
+          const conv = await Conversation.findById(data.conversationId).lean();
+          const recipientId = conv?.participants
+            .find((p) => p.toString() !== user.id)
+            ?.toString();
+
+          // Broadcast to conversation room and to the other participant's personal room without duplicate delivery
+          const readTarget = socket.to(`conversation:${data.conversationId}`);
+          if (recipientId) {
+            readTarget.to(`user:${recipientId}`);
+          }
+          readTarget.emit(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, readPayload);
+
+          if (typeof callback === "function") callback({ success: true });
+        } catch (err: unknown) {
+          logger.warn({ socketId: socket.id, err }, "Socket conversation read update error");
+          if (typeof callback === "function") callback({ success: false });
+        }
+      }
+    );
+
+    // 9. Disconnection & Multi-session Last Seen Persistence
     socket.on(SOCKET_EVENTS.DISCONNECT, async (reason: string) => {
       logger.debug(
         { socketId: socket.id, userId: user.id, reason },

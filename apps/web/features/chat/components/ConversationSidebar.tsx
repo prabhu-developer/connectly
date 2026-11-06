@@ -1,27 +1,35 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, LogOut, X } from "lucide-react";
+import { Search, LogOut, X, UserPlus } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { useAuthSession } from "../../auth/hooks/useAuthSession";
 import { ConversationList } from "./ConversationList";
+import { NewChatModal } from "./NewChatModal";
 import type { ConversationSummary } from "../types/chat";
 
 interface ConversationSidebarProps {
   conversations: ConversationSummary[];
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
+  onStartNewConversation?: (recipientId: string) => void;
 }
 
 export function ConversationSidebar({
   conversations,
   selectedConversationId,
   onSelectConversation,
+  onStartNewConversation,
 }: ConversationSidebarProps) {
   const { user, logout } = useAuthSession();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
 
   const userInitial = (user?.displayName || user?.username || "U").charAt(0).toUpperCase();
+
+  const handleSelectRecipient = (recipientId: string) => {
+    onStartNewConversation?.(recipientId);
+  };
 
   return (
     <aside
@@ -43,6 +51,15 @@ export function ConversationSidebar({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsNewChatOpen(true)}
+            title="Start new conversation"
+            aria-label="Start new conversation"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <UserPlus className="h-4 w-4" />
+          </button>
           <ThemeToggle />
           <button
             type="button"
@@ -88,7 +105,13 @@ export function ConversationSidebar({
         onSelectConversation={onSelectConversation}
         searchQuery={searchQuery}
       />
+
+      {/* New Conversation Modal */}
+      <NewChatModal
+        isOpen={isNewChatOpen}
+        onClose={() => setIsNewChatOpen(false)}
+        onSelectUser={handleSelectRecipient}
+      />
     </aside>
   );
 }
-

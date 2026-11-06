@@ -9,12 +9,18 @@ import { createApp } from "../app.js";
 import { createSocketServer, type AppSocketServer } from "./index.js";
 import { presenceService } from "../services/presence.service.js";
 import { User } from "../models/user.model.js";
+import { Conversation } from "../models/conversation.model.js";
+import { Message } from "../models/message.model.js";
 import { signAccessToken } from "../utils/token.utils.js";
 import {
   SOCKET_EVENTS,
   type PresenceChangePayload,
   type PresenceSyncPayload,
   type TypingPayload,
+  type MessageAckPayload,
+  type MessageNewPayload,
+  type ConversationReadUpdatePayload,
+  type MessageStatusUpdatePayload,
 } from "@repo/contracts/socket";
 
 describe("Socket.IO Real-Time Infrastructure & Presence", () => {
@@ -384,6 +390,121 @@ describe("Socket.IO Real-Time Infrastructure & Presence", () => {
       expect(resBatch.body.data.users[userB._id.toString()].isOnline).toBe(false);
 
       clientA.close();
+    });
+  });
+
+  describe("Real-Time Socket Message Exchange & Read Receipts", () => {
+    it("should send message via socket, broadcast to conversation room, and deliver ack", async () => {
+      const userA = await User.create({
+        email: "alice@connectly.local",
+        username: "alice",
+        displayName: "Alice",
+        passwordHash: "dummy",
+      });
+
+      const userB = await User.create({
+        email: "bob@connectly.local",
+        username: "bob",
+        displayName: "Bob",
+        passwordHash: "dummy",
+      });
+
+      const clientA = createClient(
+        signAccessToken({ sub: userA._id.toString(), email: userA.email, username: userA.username })
+      );
+      const clientB = createClient(
+        signAccessToken({ sub: userB._id.toString(), email: userB.email, username: userB.username })
+      );
+
+      await Promise.all([
+        new Promise<void>((r) => clientA.on("connect", r)),
+        new Promise<void>((r) => clientB.on("connect", r)),
+      ]);
+
+      // Create conversation
+      const conv = await Conversation.create({
+        participants: [userA._id, userB._id],
+        participantKey: `${userA._id}:${userB._id}`,
+        readCursors: [],
+      });
+
+      const convId = conv._id.toString();
+
+      // Both join conversation room
+      clientA.emit(SOCKET_EVENTS.CONVERSATION_JOIN, { conversationId: convId });
+      clientB.emit(SOCKET_EVENTS.CONVERSATION_JOIN, { conversationId: convId });
+      await new Promise((r) => setTimeout(r, 50));
+
+      const bMessages: MessageNewPayload[] = [];
+      clientB.on(SOCKET_EVENTS.MESSAGE_NEW, (payload: MessageNewPayload) => {
+        bMessages.push(payload);
+      });
+
+      // User A sends message with ack callback
+      const ackPromise = new Promise<MessageAckPayload>((resolve) => {
+        clientA.emit(
+          SOCKET_EVENTS.MESSAGE_SEND,
+          { conversationId: convId, content: "Hello Bob via socket!", clientTempId: "temp-sock-1" },
+          (ack: MessageAckPayload) => resolve(ack)
+        );
+      });
+
+      const ack = await ackPromise;
+      expect(ack.success).toBe(true);
+      expect(ack.message?.content).toBe("Hello Bob via socket!");
+      expect(ack.message?.senderId).toBe(userA._id.toString());
+
+      // Wait for broadcast
+      await new Promise((r) => setTimeout(r, 100));
+      expect(bMessages).toHaveLength(1);
+      expect(bMessages[0]?.message.content).toBe("Hello Bob via socket!");
+
+      // Idempotency check: sending with same clientTempId returns existing message
+      const ackRetryPromise = new Promise<MessageAckPayload>((resolve) => {
+        clientA.emit(
+          SOCKET_EVENTS.MESSAGE_SEND,
+          { conversationId: convId, content: "Hello Bob via socket!", clientTempId: "temp-sock-1" },
+          (ack: MessageAckPayload) => resolve(ack)
+        );
+      });
+
+      const ackRetry = await ackRetryPromise;
+      expect(ackRetry.success).toBe(true);
+      expect(ackRetry.message?.id).toBe(ack.message?.id);
+
+      const totalMsgs = await Message.countDocuments({ conversationId: conv._id });
+      expect(totalMsgs).toBe(1);
+
+      // Read receipt synchronization
+      const readUpdates: ConversationReadUpdatePayload[] = [];
+      clientA.on(SOCKET_EVENTS.CONVERSATION_READ_UPDATE, (p: ConversationReadUpdatePayload) => {
+        readUpdates.push(p);
+      });
+
+      const messageId = ack.message!.id;
+      const readPromise = new Promise<{ success: boolean }>((resolve) => {
+        clientB.emit(
+          SOCKET_EVENTS.CONVERSATION_READ,
+          { conversationId: convId, messageId },
+          (res: { success: boolean }) => resolve(res)
+        );
+      });
+
+      const readRes = await readPromise;
+      expect(readRes.success).toBe(true);
+
+      await new Promise((r) => setTimeout(r, 100));
+      expect(readUpdates).toHaveLength(1);
+      expect(readUpdates[0]?.conversationId).toBe(convId);
+      expect(readUpdates[0]?.userId).toBe(userB._id.toString());
+      expect(readUpdates[0]?.messageId).toBe(messageId);
+
+      // Verify message in database is marked as "read"
+      const dbMsg = await Message.findById(messageId);
+      expect(dbMsg?.status).toBe("read");
+
+      clientA.close();
+      clientB.close();
     });
   });
 });

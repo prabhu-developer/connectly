@@ -6,6 +6,7 @@ import { MessageComposer } from "../MessageComposer";
 import { ConversationList } from "../ConversationList";
 import { ActiveConversationView } from "../ActiveConversationView";
 import { EmptyState } from "../EmptyState";
+import { NewChatModal } from "../NewChatModal";
 import { ThemeToggle } from "../../../../components/theme-toggle";
 import { SocketContext } from "../../context/SocketContext";
 import { formatLastSeen } from "../../hooks/usePresence";
@@ -298,5 +299,18 @@ describe("ThemeToggle", () => {
     render(<ThemeToggle />);
     const button = screen.getByRole("button");
     expect(button).toBeInTheDocument();
+  });
+});
+
+describe("NewChatModal", () => {
+  it("does not render when isOpen is false", () => {
+    render(<NewChatModal isOpen={false} onClose={vi.fn()} onSelectUser={vi.fn()} />);
+    expect(screen.queryByText("New Conversation")).not.toBeInTheDocument();
+  });
+
+  it("renders when isOpen is true and shows search input", () => {
+    render(<NewChatModal isOpen={true} onClose={vi.fn()} onSelectUser={vi.fn()} />);
+    expect(screen.getByText("New Conversation")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search by username or name...")).toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import type { MessageDto } from "./chat.js";
+
 export const SOCKET_EVENTS = {
   // Connection
   CONNECT: "connect",
@@ -45,5 +47,39 @@ export interface TypingPayload {
 export interface SocketAuthHandshake {
   token: string;
 }
+
+export interface SendMessageSocketPayload {
+  conversationId: string;
+  content: string;
+  clientTempId?: string;
+}
+
+export interface MessageAckPayload {
+  success: boolean;
+  message?: MessageDto;
+  error?: string;
+}
+
+export interface MessageNewPayload {
+  message: MessageDto;
+}
+
+export interface ConversationReadSocketPayload {
+  conversationId: string;
+  messageId: string;
+}
+
+export interface ConversationReadUpdatePayload {
+  conversationId: string;
+  userId: string;
+  messageId: string;
+}
+
+export interface MessageStatusUpdatePayload {
+  conversationId: string;
+  messageId: string;
+  status: "delivered" | "read";
+}
+
 
 
