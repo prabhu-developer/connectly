@@ -16,7 +16,7 @@ export default function HomePage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <div className="hidden md:block w-80 lg:w-96 shrink-0 h-full">
@@ -27,6 +27,10 @@ export default function HomePage() {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   return <ChatShell />;

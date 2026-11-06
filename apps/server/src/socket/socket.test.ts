@@ -61,9 +61,10 @@ describe("Socket.IO Real-Time Infrastructure & Presence", () => {
     await User.deleteMany({});
   });
 
-  function createClient(token?: string): ClientSocketType {
+  function createClient(token?: string, extraHeaders?: Record<string, string>): ClientSocketType {
     return ClientSocket(`http://localhost:${serverPort}`, {
       auth: token ? { token } : undefined,
+      extraHeaders,
       transports: ["websocket"],
       reconnection: false,
     });
@@ -113,6 +114,37 @@ describe("Socket.IO Real-Time Infrastructure & Presence", () => {
       });
 
       const client = createClient(token);
+
+      const connectPromise = new Promise<boolean>((resolve) => {
+        client.on("connect", () => {
+          resolve(true);
+        });
+      });
+
+      const connected = await connectPromise;
+      expect(connected).toBe(true);
+      expect(client.connected).toBe(true);
+
+      client.close();
+    });
+
+    it("should successfully connect when valid connectly_access cookie is provided in handshake", async () => {
+      const user = await User.create({
+        email: "cookie_user@connectly.local",
+        username: "cookie_user",
+        displayName: "Cookie User",
+        passwordHash: "dummy",
+      });
+
+      const token = signAccessToken({
+        sub: user._id.toString(),
+        email: user.email,
+        username: user.username,
+      });
+
+      const client = createClient(undefined, {
+        Cookie: `connectly_access=${token}`,
+      });
 
       const connectPromise = new Promise<boolean>((resolve) => {
         client.on("connect", () => {

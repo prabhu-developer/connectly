@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { AuthUserDto, LoginInput, RegisterInput } from "@repo/contracts/auth";
 import { authApi } from "../services/auth.api";
 
+const USER_STORAGE_KEY = "connectly_user";
+
 interface AuthContextValue {
   user: AuthUserDto | null;
   isLoading: boolean;
@@ -19,11 +21,23 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUserDto | null>(null);
+  // Eagerly restore user from local storage on client to avoid flash of unauthenticated state
+  const [user, setUser] = useState<AuthUserDto | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(USER_STORAGE_KEY);
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize session on mount via silent refresh
+  // Initialize and validate session on mount via silent token refresh
   useEffect(() => {
     let isMounted = true;
 
@@ -32,11 +46,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await authApi.refresh();
         if (isMounted) {
           setUser(data.user);
+          try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+          } catch {
+            // Storage quota or disabled storage - continue safely
+          }
         }
-      } catch {
-        // Not authenticated or expired session — clean start
-        if (isMounted) {
+      } catch (err: unknown) {
+        // Only clear user state and storage if the session is genuinely invalid / expired (401)
+        const isAuthError =
+          (err && typeof err === "object" && "response" in err && (err as { response?: { status?: number } }).response?.status === 401) ||
+          (err instanceof Error && (err.message.includes("401") || err.message.includes("Unauthorized") || err.message.includes("session") || err.message.includes("token")));
+
+        if (isMounted && isAuthError) {
           setUser(null);
+          try {
+            localStorage.removeItem(USER_STORAGE_KEY);
+          } catch {
+            // Storage quota or disabled storage - continue safely
+          }
         }
       } finally {
         if (isMounted) {
@@ -58,6 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await authApi.login(input);
       setUser(data.user);
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+      } catch {
+        // Non-fatal
+      }
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "response" in err
@@ -79,6 +112,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await authApi.register(input);
       setUser(data.user);
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+      } catch {
+        // Non-fatal
+      }
     } catch (err: unknown) {
       const message =
         err && typeof err === "object" && "response" in err
@@ -98,14 +136,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       await authApi.logout();
-      setUser(null);
     } finally {
+      setUser(null);
+      try {
+        localStorage.removeItem(USER_STORAGE_KEY);
+      } catch {
+        // Non-fatal
+      }
       setIsLoading(false);
     }
   }, []);
 
   const updateUser = useCallback((updatedUser: Partial<AuthUserDto>) => {
-    setUser((prev) => (prev ? { ...prev, ...updatedUser } : null));
+    setUser((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, ...updatedUser };
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Non-fatal
+      }
+      return next;
+    });
   }, []);
 
   const clearError = useCallback(() => setError(null), []);

@@ -7,20 +7,28 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasRefreshCookie = request.cookies.has("connectly_refresh");
+  const hasAuthCookie =
+    request.cookies.has("connectly_refresh") || request.cookies.has("connectly_access");
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   // Redirect logged-in users away from auth pages to chat root
-  if (isAuthRoute && hasRefreshCookie) {
+  if (isAuthRoute && hasAuthCookie) {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Redirect unauthenticated visitors attempting to view chat to login
+  if (!isAuthRoute && !hasAuthCookie && pathname === "/") {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
 }
 
-export const matcher = [
-  "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-];
+export const config = {
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
 
 export default proxy;

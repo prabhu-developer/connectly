@@ -25,8 +25,26 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor: attach bearer token
-apiClient.interceptors.request.use((config) => {
+// Request interceptor: attach bearer token (awaiting active refresh if in flight)
+apiClient.interceptors.request.use(async (config) => {
+  // If not an auth handshake endpoint and a token refresh is in progress, await it
+  if (
+    activeRefreshPromise &&
+    !config.url?.includes("/auth/refresh") &&
+    !config.url?.includes("/auth/login") &&
+    !config.url?.includes("/auth/register")
+  ) {
+    try {
+      const refreshed = await activeRefreshPromise;
+      if (refreshed?.accessToken && config.headers) {
+        config.headers.Authorization = `Bearer ${refreshed.accessToken}`;
+      }
+      return config;
+    } catch {
+      // Refresh failed, continue and allow response handler to catch
+    }
+  }
+
   if (currentAccessToken && config.headers) {
     config.headers.Authorization = `Bearer ${currentAccessToken}`;
   }
@@ -49,6 +67,42 @@ function processQueue(error: unknown, token: string | null = null): void {
     }
   });
   failedQueue = [];
+}
+
+let activeRefreshPromise: Promise<AuthResponseData> | null = null;
+
+/**
+ * Deduplicated token refresh request.
+ * Multiple concurrent callers share a single in-flight HTTP request to /auth/refresh,
+ * preventing duplicate refresh token rotation race conditions (e.g. on page refresh in React StrictMode).
+ */
+export async function requestRefreshToken(): Promise<AuthResponseData> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  isRefreshing = true;
+
+  activeRefreshPromise = (async () => {
+    try {
+      const res = await apiClient.post<ApiResponse<AuthResponseData>>("/auth/refresh");
+      if (!res.data.success) {
+        throw new Error(res.data.error.message || "Failed to refresh session");
+      }
+      setAccessToken(res.data.data.accessToken);
+      processQueue(null, res.data.data.accessToken);
+      return res.data.data;
+    } catch (err) {
+      setAccessToken(null);
+      processQueue(err, null);
+      throw err;
+    } finally {
+      activeRefreshPromise = null;
+      isRefreshing = false;
+    }
+  })();
+
+  return activeRefreshPromise;
 }
 
 apiClient.interceptors.response.use(
@@ -81,31 +135,18 @@ apiClient.interceptors.response.use(
       }
 
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        const { data } = await apiClient.post<ApiResponse<AuthResponseData>>(
-          "/auth/refresh"
-        );
+        const data = await requestRefreshToken();
+        const newToken = data.accessToken;
 
-        if (data.success) {
-          const newToken = data.data.accessToken;
-          setAccessToken(newToken);
-          processQueue(null, newToken);
-
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          }
-          return apiClient(originalRequest);
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
-
-        throw new Error("Refresh failed");
+        return apiClient(originalRequest);
       } catch (refreshErr) {
         setAccessToken(null);
-        processQueue(refreshErr, null);
         return Promise.reject(refreshErr);
-      } finally {
-        isRefreshing = false;
       }
     }
 

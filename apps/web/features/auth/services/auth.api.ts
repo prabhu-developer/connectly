@@ -1,4 +1,4 @@
-import { apiClient, setAccessToken } from "../../../lib/api-client";
+import { apiClient, setAccessToken, requestRefreshToken } from "../../../lib/api-client";
 import type { ApiResponse } from "@repo/contracts/api";
 import type {
   RegisterInput,
@@ -33,14 +33,7 @@ export const authApi = {
   },
 
   async refresh(): Promise<AuthResponseData> {
-    const res = await apiClient.post<ApiResponse<AuthResponseData>>(
-      "/auth/refresh"
-    );
-    if (!res.data.success) {
-      throw new Error(res.data.error.message);
-    }
-    setAccessToken(res.data.data.accessToken);
-    return res.data.data;
+    return requestRefreshToken();
   },
 
   async logout(): Promise<void> {
