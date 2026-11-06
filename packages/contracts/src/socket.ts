@@ -1,4 +1,4 @@
-import type { MessageDto } from "./chat.js";
+import type { AttachmentDto, MessageDto } from "./chat.js";
 
 export const SOCKET_EVENTS = {
   // Connection
@@ -50,7 +50,8 @@ export interface SocketAuthHandshake {
 
 export interface SendMessageSocketPayload {
   conversationId: string;
-  content: string;
+  content?: string;
+  attachment?: AttachmentDto;
   clientTempId?: string;
 }
 

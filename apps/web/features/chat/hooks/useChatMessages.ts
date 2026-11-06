@@ -10,7 +10,7 @@ import {
   type MessageStatusUpdatePayload,
   type MessageAckPayload,
 } from "@repo/contracts/socket";
-import type { MessageDto } from "@repo/contracts/chat";
+import type { AttachmentDto, MessageDto } from "@repo/contracts/chat";
 
 export function useChatMessages(conversationId: string | null, currentUserId: string) {
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -161,15 +161,17 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
   }, [conversationId, nextCursor, isLoading]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!conversationId || !content.trim()) return;
+    async (content?: string, attachment?: AttachmentDto) => {
+      const trimmed = content?.trim() || "";
+      if (!conversationId || (!trimmed && !attachment)) return;
 
       const clientTempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const optimisticMessage: MessageDto = {
         id: clientTempId,
         conversationId,
         senderId: currentUserId,
-        content: content.trim(),
+        content: trimmed,
+        attachment,
         status: "sent",
         clientTempId,
         createdAt: new Date().toISOString(),
@@ -187,7 +189,8 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
           SOCKET_EVENTS.MESSAGE_SEND,
           {
             conversationId,
-            content: content.trim(),
+            content: trimmed,
+            attachment,
             clientTempId,
           },
           (ack: MessageAckPayload) => {
@@ -201,7 +204,12 @@ export function useChatMessages(conversationId: string | null, currentUserId: st
       } else {
         // Fallback to REST API
         try {
-          const confirmed = await chatApi.sendMessage(conversationId, content.trim(), clientTempId);
+          const confirmed = await chatApi.sendMessage(
+            conversationId,
+            trimmed,
+            attachment,
+            clientTempId
+          );
           setMessages((prev) =>
             prev.map((m) => (m.clientTempId === clientTempId ? confirmed : m))
           );

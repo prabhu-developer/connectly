@@ -100,10 +100,10 @@ export function registerSocketHandlers(io: Server): void {
       SOCKET_EVENTS.MESSAGE_SEND,
       async (data: SendMessageSocketPayload, callback?: (ack: MessageAckPayload) => void) => {
         try {
-          if (!data?.conversationId || !data?.content) {
+          if (!data?.conversationId || (!data?.content?.trim() && !data?.attachment)) {
             const errPayload: MessageAckPayload = {
               success: false,
-              error: "conversationId and content are required",
+              error: "conversationId and either content or attachment are required",
             };
             if (typeof callback === "function") callback(errPayload);
             return;
@@ -114,6 +114,7 @@ export function registerSocketHandlers(io: Server): void {
             conversationId: data.conversationId,
             senderId: user.id,
             content: data.content,
+            attachment: data.attachment,
             clientTempId: data.clientTempId,
           });
 

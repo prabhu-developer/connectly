@@ -5,14 +5,32 @@ export const createConversationSchema = z.object({
 });
 export type CreateConversationInput = z.infer<typeof createConversationSchema>;
 
-export const sendMessageSchema = z.object({
-  content: z
-    .string()
-    .trim()
-    .max(5000, "Message content cannot exceed 5000 characters")
-    .default(""),
-  clientTempId: z.string().trim().optional(),
+export const attachmentSchema = z.object({
+  url: z.string().trim().min(1, "Attachment URL is required"),
+  type: z.enum(["image", "file"]),
+  name: z.string().trim().min(1, "Attachment name is required").max(255),
+  size: z.number().int().min(1, "Attachment size must be positive"),
+  mimeType: z.string().trim().min(1, "Attachment MIME type is required"),
 });
+export type AttachmentDto = z.infer<typeof attachmentSchema>;
+
+export const sendMessageSchema = z
+  .object({
+    content: z
+      .string()
+      .trim()
+      .max(5000, "Message content cannot exceed 5000 characters")
+      .default(""),
+    attachment: attachmentSchema.optional(),
+    clientTempId: z.string().trim().optional(),
+  })
+  .refine(
+    (data) => (data.content && data.content.length > 0) || !!data.attachment,
+    {
+      message: "Message must contain either text content or an attachment",
+      path: ["content"],
+    }
+  );
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
 export const messageQuerySchema = z.object({
@@ -64,6 +82,7 @@ export interface MessageDto {
   senderId: string;
   content: string;
   status: "sent" | "delivered" | "read";
+  attachment?: AttachmentDto;
   clientTempId?: string;
   createdAt: string;
   updatedAt: string;

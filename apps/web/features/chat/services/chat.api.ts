@@ -1,6 +1,7 @@
 import { apiClient } from "../../../lib/api-client";
 import type { ApiResponse } from "@repo/contracts/api";
 import type {
+  AttachmentDto,
   ConversationDto,
   MessageDto,
   PaginatedMessagesDto,
@@ -43,13 +44,29 @@ export const chatApi = {
 
   async sendMessage(
     conversationId: string,
-    content: string,
+    content?: string,
+    attachment?: AttachmentDto,
     clientTempId?: string
   ): Promise<MessageDto> {
     const res = await apiClient.post<ApiResponse<MessageDto>>(
       `/conversations/${conversationId}/messages`,
-      { content, clientTempId }
+      { content, attachment, clientTempId }
     );
+    if (!res.data.success) {
+      throw new Error(res.data.error.message);
+    }
+    return res.data.data;
+  },
+
+  async uploadMedia(file: File): Promise<AttachmentDto> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await apiClient.post<ApiResponse<AttachmentDto>>("/media/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     if (!res.data.success) {
       throw new Error(res.data.error.message);
     }

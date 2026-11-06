@@ -146,6 +146,7 @@ export async function sendMessage(
       conversationId,
       senderId: userId,
       content: parseResult.data.content,
+      attachment: parseResult.data.attachment,
       clientTempId: parseResult.data.clientTempId,
     });
 

@@ -1,3 +1,5 @@
+import type { AttachmentDto } from "@repo/contracts/chat";
+
 export type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
 export interface ChatParticipant {
@@ -15,6 +17,7 @@ export interface ChatMessage {
   senderId: string;
   content: string;
   status: MessageStatus;
+  attachment?: AttachmentDto;
   createdAt: string;
   clientTempId?: string;
 }

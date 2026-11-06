@@ -167,9 +167,17 @@ export class ConversationService {
     let lastMessageDto: LastMessageDto | undefined;
     if (conv.lastMessageId && typeof conv.lastMessageId === "object" && "_id" in conv.lastMessageId) {
       const msg = conv.lastMessageId;
+      const displayContent =
+        msg.content ||
+        (msg.attachment
+          ? msg.attachment.type === "image"
+            ? "📷 Photo"
+            : `📎 ${msg.attachment.name || "Attachment"}`
+          : "");
+
       lastMessageDto = {
         id: msg._id.toString(),
-        content: msg.content,
+        content: displayContent,
         senderId: msg.senderId.toString(),
         status: msg.status,
         createdAt: msg.createdAt.toISOString(),

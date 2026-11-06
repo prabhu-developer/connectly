@@ -26,6 +26,11 @@ coverage
 out/
 build
 dist
+uploads/*
+!uploads/.gitkeep
+apps/server/uploads/*
+!apps/server/uploads/.gitkeep
+
 
 
 # Debug

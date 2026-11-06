@@ -3,12 +3,13 @@ import { Message, type MessageDocument } from "../models/message.model.js";
 import { Conversation } from "../models/conversation.model.js";
 import { conversationService } from "./conversation.service.js";
 import { AppError } from "../middleware/error.middleware.js";
-import type { MessageDto, PaginatedMessagesDto } from "@repo/contracts/chat";
+import type { AttachmentDto, MessageDto, PaginatedMessagesDto } from "@repo/contracts/chat";
 
 export interface CreateMessageParams {
   conversationId: string;
   senderId: string;
-  content: string;
+  content?: string;
+  attachment?: AttachmentDto;
   clientTempId?: string;
 }
 
@@ -26,6 +27,15 @@ function mapMessageToDto(doc: MessageDocument): MessageDto {
     senderId: doc.senderId.toString(),
     content: doc.content,
     status: doc.status,
+    attachment: doc.attachment
+      ? {
+          url: doc.attachment.url,
+          type: doc.attachment.type,
+          name: doc.attachment.name,
+          size: doc.attachment.size,
+          mimeType: doc.attachment.mimeType,
+        }
+      : undefined,
     clientTempId: doc.clientTempId,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
@@ -38,8 +48,8 @@ export class MessageService {
    */
   async createMessage(params: CreateMessageParams): Promise<MessageDto> {
     const trimmedContent = params.content?.trim() || "";
-    if (!trimmedContent) {
-      throw new AppError("Message content cannot be empty", 400, "EMPTY_MESSAGE");
+    if (!trimmedContent && !params.attachment) {
+      throw new AppError("Message content or attachment is required", 400, "EMPTY_MESSAGE");
     }
 
     if (trimmedContent.length > 5000) {
@@ -67,6 +77,7 @@ export class MessageService {
         conversationId: new Types.ObjectId(params.conversationId),
         senderId: new Types.ObjectId(params.senderId),
         content: trimmedContent,
+        attachment: params.attachment,
         clientTempId: params.clientTempId || undefined,
         status: "sent",
       });
